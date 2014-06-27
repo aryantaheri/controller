@@ -9,6 +9,7 @@
 
 package org.opendaylight.controller.sal.routing;
 
+import java.util.List;
 import java.util.Map;
 
 import org.opendaylight.controller.sal.core.Edge;
@@ -61,6 +62,19 @@ public interface IRouting {
      * @return: the {@link org.opendaylight.controller.sal.core.Path}
      */
     public Path getRoute(Node src, Node dst, Short Bw);
+
+    /**
+     * Returns K shortest Paths leading from the source to the destination
+     *
+     *
+     * @param src
+     *            source {@link org.opendaylight.controller.sal.core.Node}
+     *
+     * @param dst
+     *            destination {@link org.opendaylight.controller.sal.core.Node}
+     * @return a List of {@link org.opendaylight.controller.sal.core.Path}
+     */
+    public List<Path> getKShortestRoutes(Node src, Node dst, int k);
 
     /**
      * Remove all routes and reset all state. USE CAREFULLY!
