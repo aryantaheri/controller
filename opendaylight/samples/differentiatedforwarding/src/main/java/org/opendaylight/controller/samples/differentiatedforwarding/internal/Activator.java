@@ -22,8 +22,6 @@ import org.opendaylight.controller.sal.packet.IDataPacketService;
 import org.opendaylight.controller.sal.packet.IListenDataPacket;
 import org.opendaylight.controller.sal.routing.IListenRoutingUpdates;
 import org.opendaylight.controller.sal.routing.IRouting;
-import org.opendaylight.controller.samples.differentiatedforwarding.IBroadcastHandler;
-import org.opendaylight.controller.samples.differentiatedforwarding.IBroadcastPortSelector;
 import org.opendaylight.controller.switchmanager.IInventoryListener;
 import org.opendaylight.controller.switchmanager.ISwitchManager;
 import org.opendaylight.controller.topologymanager.ITopologyManager;
