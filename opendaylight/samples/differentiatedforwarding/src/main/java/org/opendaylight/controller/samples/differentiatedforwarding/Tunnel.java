@@ -3,7 +3,6 @@ package org.opendaylight.controller.samples.differentiatedforwarding;
 import java.io.Serializable;
 import java.net.InetAddress;
 
-import org.opendaylight.controller.sal.core.ConstructionException;
 import org.opendaylight.controller.sal.core.NodeConnector;
 
 public class Tunnel implements Serializable {
@@ -69,18 +68,95 @@ public class Tunnel implements Serializable {
     }
 
     public boolean isReverse(Tunnel tunnel){
-        if (this.srcNodeConnector != null && this.srcNodeConnector == tunnel.getDstNodeConnector() &&
-                this.tunnelKey != null && this.tunnelKey.equalsIgnoreCase(tunnel.getTunnelKey())){
-            return true;
-        } else if (this.dstNodeConnector != null && this.dstNodeConnector == tunnel.getSrcNodeConnector() &&
-                this.tunnelKey != null && this.tunnelKey.equalsIgnoreCase(tunnel.getTunnelKey())){
+        if (this.tunnelKey == null || tunnel.getTunnelKey() == null
+                || !this.tunnelKey.equalsIgnoreCase(tunnel.getTunnelKey())){
+            return false;
+        } else if (this.srcAddress != null && this.dstAddress != null &&
+                    tunnel.getSrcAddress() != null && tunnel.getDstAddress() != null &&
+                    this.dstAddress.equals(tunnel.getSrcAddress()) && this.srcAddress.equals(tunnel.getDstAddress())){
+
             return true;
         }
         return false;
     }
+
+    public void fillFromReverse(Tunnel reverseTunnel){
+        if (!isReverse(reverseTunnel)) return;
+        if (this.srcNodeConnector == null && reverseTunnel.getDstNodeConnector() != null){
+            this.srcNodeConnector = reverseTunnel.getDstNodeConnector();
+        }
+        if (this.dstNodeConnector == null && reverseTunnel.getSrcNodeConnector() != null){
+            this.dstNodeConnector = reverseTunnel.getSrcNodeConnector();
+        }
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (!(obj instanceof Tunnel))
+            return false;
+        Tunnel other = (Tunnel) obj;
+        // Implicit assumption that key, addresses, and srcNC can not be null. This should be enforced in the constructor, etc.
+        if (tunnelKey != null && other.tunnelKey != null &&
+                srcAddress != null && other.srcAddress != null &&
+                dstAddress != null && other.dstAddress != null &&
+                srcNodeConnector != null && other.srcNodeConnector != null){
+
+            if (dstNodeConnector != null && other.dstNodeConnector != null){
+                if (tunnelKey.equalsIgnoreCase(other.tunnelKey) &&
+                        srcAddress.equals(other.srcAddress) &&
+                        dstAddress.equals(other.dstAddress) &&
+                        srcNodeConnector.equals(other.srcNodeConnector) &&
+                        dstNodeConnector.equals(other.dstNodeConnector)){
+                    return true;
+                } else {
+                    return false;
+                }
+            } else if (dstNodeConnector == null && other.dstNodeConnector == null){
+                if(tunnelKey.equalsIgnoreCase(other.tunnelKey) &&
+                        srcAddress.equals(other.srcAddress) &&
+                        dstAddress.equals(other.dstAddress) &&
+                        srcNodeConnector.equals(other.srcNodeConnector)){
+                    return true;
+                } else {
+                    return false;
+                }
+
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+
+        result = prime
+                * result
+                + ((tunnelKey == null) ? 0 : tunnelKey.hashCode());
+        result = prime
+                * result
+                + ((srcAddress == null) ? 0 : srcAddress.hashCode());
+        result = prime
+                * result
+                + ((dstAddress == null) ? 0 : dstAddress.hashCode());
+        result = prime
+                * result
+                + ((srcNodeConnector == null) ? 0 : srcNodeConnector.hashCode());
+        result = prime
+                * result
+                + ((dstNodeConnector == null) ? 0 : dstNodeConnector.hashCode());
+
+        return result;
+    }
+
     @Override
     public String toString() {
-        return "Tunnel: " +
+        return "Tunnel: key(" + tunnelKey + ")" +
                 srcNodeConnector + "(" + srcAddress + ")" +
                 "->" +
                 dstNodeConnector + "(" + dstAddress + ")";
