@@ -13,18 +13,9 @@ import java.util.Dictionary;
 import java.util.Hashtable;
 
 import org.apache.felix.dm.Component;
-import org.opendaylight.controller.clustering.services.IClusterContainerServices;
-import org.opendaylight.controller.forwardingrulesmanager.IForwardingRulesManager;
-import org.opendaylight.controller.hosttracker.IfIptoHost;
-import org.opendaylight.controller.hosttracker.IfNewHostNotify;
 import org.opendaylight.controller.sal.core.ComponentActivatorAbstractBase;
-import org.opendaylight.controller.sal.packet.IDataPacketService;
-import org.opendaylight.controller.sal.packet.IListenDataPacket;
-import org.opendaylight.controller.sal.routing.IListenRoutingUpdates;
-import org.opendaylight.controller.sal.routing.IRouting;
-import org.opendaylight.controller.switchmanager.IInventoryListener;
-import org.opendaylight.controller.switchmanager.ISwitchManager;
-import org.opendaylight.controller.topologymanager.ITopologyManager;
+import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
+import org.opendaylight.ovsdb.plugin.OVSDBConfigService;
 import org.opendaylight.ovsdb.plugin.OVSDBInventoryListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +36,13 @@ public class Activator extends ComponentActivatorAbstractBase {
      */
     @Override
     public Object[] getImplementations() {
-        Object[] res = { DifferentiatedForwardingImpl.class };
+        Object[] res = { TenantTunnelObserver.class };
+        return res;
+    }
+
+    @Override
+    protected Object[] getGlobalImplementations() {
+        final Object[] res = { TenantTunnelObserverCLI.class };
         return res;
     }
 
@@ -64,46 +61,51 @@ public class Activator extends ComponentActivatorAbstractBase {
      */
     @Override
     public void configureInstance(Component c, Object imp, String containerName) {
-        if (imp.equals(DifferentiatedForwardingImpl.class)) {
+        if (imp.equals(TenantTunnelObserver.class)) {
             Dictionary<String, Object> props = new Hashtable<String, Object>();
             props.put("salListenerName", "differentiatedforwarding");
 
             // export the service
             c.setInterface(new String[] { OVSDBInventoryListener.class.getName(),
-                    IInventoryListener.class.getName(),
+                    /**IInventoryListener.class.getName(),
                     IfNewHostNotify.class.getName(),
                     IListenRoutingUpdates.class.getName(),
-                    IListenDataPacket.class.getName() }, props);
+                    IListenDataPacket.class.getName(),**/
+                    ITunnelObserver.class.getName()}, props);
+
+//            c.add(createContainerServiceDependency(containerName).setService(
+//                    IClusterContainerServices.class).setCallbacks(
+//                    "setClusterContainerService",
+//                    "unsetClusterContainerService").setRequired(true));
+//
+//            c.add(createContainerServiceDependency(containerName).setService(
+//                    ISwitchManager.class).setCallbacks("setSwitchManager",
+//                    "unsetSwitchManager").setRequired(true));
+//
+//            c.add(createContainerServiceDependency(containerName).setService(
+//                    IfIptoHost.class).setCallbacks("setHostTracker",
+//                    "unsetHostTracker").setRequired(false));
+//
+//            c.add(createContainerServiceDependency(containerName).setService(
+//                    IForwardingRulesManager.class).setCallbacks(
+//                    "setForwardingRulesManager", "unsetForwardingRulesManager")
+//                    .setRequired(true));
+//
+//            c.add(createContainerServiceDependency(containerName).setService(
+//                    ITopologyManager.class).setCallbacks("setTopologyManager",
+//                    "unsetTopologyManager").setRequired(true));
+//
+//            c.add(createContainerServiceDependency(containerName).setService(
+//                    IRouting.class).setCallbacks("setRouting", "unsetRouting")
+//                    .setRequired(true));
+//
+//            c.add(createContainerServiceDependency(containerName).setService(
+//                    IDataPacketService.class).setCallbacks("setDataPacketService",
+//                   "unsetDataPacketService").setRequired(false));
 
             c.add(createContainerServiceDependency(containerName).setService(
-                    IClusterContainerServices.class).setCallbacks(
-                    "setClusterContainerService",
-                    "unsetClusterContainerService").setRequired(true));
-
-            c.add(createContainerServiceDependency(containerName).setService(
-                    ISwitchManager.class).setCallbacks("setSwitchManager",
-                    "unsetSwitchManager").setRequired(false));
-
-            c.add(createContainerServiceDependency(containerName).setService(
-                    IfIptoHost.class).setCallbacks("setHostTracker",
-                    "unsetHostTracker").setRequired(false));
-
-            c.add(createContainerServiceDependency(containerName).setService(
-                    IForwardingRulesManager.class).setCallbacks(
-                    "setForwardingRulesManager", "unsetForwardingRulesManager")
-                    .setRequired(true));
-
-            c.add(createContainerServiceDependency(containerName).setService(
-                    ITopologyManager.class).setCallbacks("setTopologyManager",
-                    "unsetTopologyManager").setRequired(false));
-
-            c.add(createContainerServiceDependency(containerName).setService(
-                    IRouting.class).setCallbacks("setRouting", "unsetRouting")
-                    .setRequired(false));
-
-            c.add(createContainerServiceDependency(containerName).setService(
-                    IDataPacketService.class).setCallbacks("setDataPacketService",
-                   "unsetDataPacketService").setRequired(false));
+                    OVSDBConfigService.class).setCallbacks("setOVSDBConfigService",
+                    "unsetOVSDBConfigService").setRequired(false));
 
         }
 //        else if (imp.equals(SimpleBroadcastHandlerImpl.class)) {

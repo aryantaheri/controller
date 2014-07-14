@@ -9,36 +9,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.opendaylight.controller.clustering.services.IClusterContainerServices;
-import org.opendaylight.controller.forwardingrulesmanager.FlowEntry;
-import org.opendaylight.controller.forwardingrulesmanager.IForwardingRulesManager;
-import org.opendaylight.controller.hosttracker.IfIptoHost;
-import org.opendaylight.controller.hosttracker.IfNewHostNotify;
-import org.opendaylight.controller.hosttracker.hostAware.HostNodeConnector;
 import org.opendaylight.controller.networkconfig.neutron.NeutronNetwork;
 import org.opendaylight.controller.sal.core.ConstructionException;
 import org.opendaylight.controller.sal.core.Node;
 import org.opendaylight.controller.sal.core.NodeConnector;
-import org.opendaylight.controller.sal.core.Property;
-import org.opendaylight.controller.sal.core.UpdateType;
-import org.opendaylight.controller.sal.packet.IDataPacketService;
-import org.opendaylight.controller.sal.packet.IListenDataPacket;
-import org.opendaylight.controller.sal.packet.PacketResult;
-import org.opendaylight.controller.sal.packet.RawPacket;
-import org.opendaylight.controller.sal.routing.IListenRoutingUpdates;
-import org.opendaylight.controller.sal.routing.IRouting;
 import org.opendaylight.controller.sal.utils.HexEncode;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
-import org.opendaylight.controller.samples.differentiatedforwarding.HostNodePair;
+import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
-import org.opendaylight.controller.switchmanager.IInventoryListener;
-import org.opendaylight.controller.switchmanager.ISwitchManager;
-import org.opendaylight.controller.topologymanager.ITopologyManager;
 import org.opendaylight.ovsdb.lib.notation.UUID;
 import org.opendaylight.ovsdb.lib.table.Bridge;
 import org.opendaylight.ovsdb.lib.table.Interface;
@@ -54,33 +37,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class DifferentiatedForwardingImpl implements OVSDBInventoryListener, IfNewHostNotify,
-        IListenRoutingUpdates, IInventoryListener, IListenDataPacket {
-    private static Logger log = LoggerFactory.getLogger(DifferentiatedForwardingImpl.class);
+public class TenantTunnelObserver implements OVSDBInventoryListener, ITunnelObserver {
+    private static Logger log = LoggerFactory.getLogger(TenantTunnelObserver.class);
     private static short DEFAULT_IPSWITCH_PRIORITY = 1;
     static final String FORWARDING_RULES_CACHE_NAME = "forwarding.ipswitch.rules";
-    private IfIptoHost hostTracker;
-    private IForwardingRulesManager frm;
-    private ITopologyManager topologyManager;
-    private IRouting routing;
 
-    /**
-     * The set of all forwarding rules: (host) -> (switch -> flowmod). Note that
-     * the host includes an attachment point and that while the switch appears
-     * to be a switch's port, in actuality it is a special port which just
-     * represents the switch.
-     */
-    private ConcurrentMap<HostNodePair, HashMap<NodeConnector, FlowEntry>> rulesDB;
-    private final Map<Node, List<FlowEntry>> tobePrunedPos = new HashMap<Node, List<FlowEntry>>();
     private IClusterContainerServices clusterContainerService = null;
-    private ISwitchManager switchManager;
-    private IDataPacketService dataPacketService;
 
+    OVSDBConfigService ovsdbConfigService;
     /**
      * Tunnel discovery using OVSDB plugin
      */
     private BlockingQueue<SouthboundInterfaceEvent> ovsdbTunnelInterfaceEvents;
     private ExecutorService tunnelEventHandler;
+    //TODO: Use clusterContainerService.createCache for creating the object and storage
     private HashMap<String, List<Tunnel>> tunnelsMap;
 
 
@@ -130,38 +100,6 @@ public class DifferentiatedForwardingImpl implements OVSDBInventoryListener, IfN
     }
 
 
-    @Override
-    public PacketResult receiveDataPacket(RawPacket inPkt) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-    @Override
-    public void notifyNode(Node node, UpdateType type,
-            Map<String, Property> propMap) {
-        // TODO Auto-generated method stub
-
-    }
-    @Override
-    public void notifyNodeConnector(NodeConnector nodeConnector,
-            UpdateType type, Map<String, Property> propMap) {
-        // TODO Auto-generated method stub
-
-    }
-    @Override
-    public void recalculateDone() {
-        // TODO Auto-generated method stub
-
-    }
-    @Override
-    public void notifyHTClient(HostNodeConnector host) {
-        // TODO Auto-generated method stub
-
-    }
-    @Override
-    public void notifyHTClientHostRemoved(HostNodeConnector host) {
-        // TODO Auto-generated method stub
-
-    }
     @Override
     public void nodeAdded(Node node) {
         // TODO Auto-generated method stub
@@ -233,12 +171,12 @@ public class DifferentiatedForwardingImpl implements OVSDBInventoryListener, IfN
                     SouthboundInterfaceEvent ev;
                     try {
                         ev = ovsdbTunnelInterfaceEvents.take();
+                        updateTunnelsFromInterfaceEvent(ev.getNode(), ev.getUuid(), (Interface)ev.getRow(), (Interface)ev.getOldRow(),
+                                ev.getContext(),ev.getAction());
                     } catch (InterruptedException e) {
                         log.info("The event handler thread was interrupted, shutting down", e);
                         return;
                     }
-                    updateTunnelsFromInterfaceEvent(ev.getNode(), ev.getUuid(), (Interface)ev.getRow(), (Interface)ev.getOldRow(),
-                                             ev.getContext(),ev.getAction());
                 }
             }
 
@@ -371,13 +309,14 @@ public class DifferentiatedForwardingImpl implements OVSDBInventoryListener, IfN
 
     private Tunnel createDummyTunnel(Node node, Interface intf, String uuid, String localIP, String remoteIP, String flowKey){
      // FIXME: This can be terribly bad, NodeConnector only accepts Short values, while OVSDB stores them in BigInteger
+        log.debug("createDummyTunnel: node {} intf {} UUID {} localIP {} remoteIP {} flowKey {}", node, intf, uuid, localIP, remoteIP, flowKey);
         Short ofPortShort = new Short(((BigInteger)intf.getOfport().toArray()[0]).shortValue());
         if(ofPortShort <= 0){
-            log.debug("updateTunnelsFromInterfaceEvent: received OpenFlowPort {} is not valid. srcNodeConnctor is not available. Returning", ofPortShort);
+            log.debug("createDummyTunnel: received OpenFlowPort {} is not valid. srcNodeConnctor is not available. Returning", ofPortShort);
             return null;
         }
         Node ofNode = getOpenFlowNode(node, uuid, intf);
-        log.debug("updateTunnelsFromInterfaceEvent: creating srcNodeConnector from: {}, {}, {}", NodeConnector.NodeConnectorIDType.OPENFLOW, Short.parseShort(ofPortShort.toString()), ofNode);
+        log.debug("createDummyTunnel: creating srcNodeConnector from: {}, {}, {}", NodeConnector.NodeConnectorIDType.OPENFLOW, Short.parseShort(ofPortShort.toString()), ofNode);
         NodeConnector srcNodeConnector = NodeConnector.fromStringNoNode(NodeConnector.NodeConnectorIDType.OPENFLOW, ofPortShort.toString(), ofNode);
         InetAddress srcAddress = null;
         InetAddress dstAddress = null;
@@ -389,13 +328,13 @@ public class DifferentiatedForwardingImpl implements OVSDBInventoryListener, IfN
                 srcAddress = InetAddress.getByName(localIP);
             }
         } catch (UnknownHostException e) {
-            log.error("updateTunnelsFromInterfaceEvent: exception in parsing local/remote IP addresses. Returning", e);
+            log.error("createDummyTunnel: exception in parsing local/remote IP addresses. Returning", e);
             return null;
         }
 
         Tunnel tunnel = new Tunnel(srcNodeConnector, null, srcAddress, dstAddress, flowKey);
         if (srcAddress == null || dstAddress == null || srcNodeConnector == null){
-            log.error("updateTunnelsFromInterfaceEvent: srcNodeConnector {}, or srcAddress {}, or dstAddress {} are null in tunnel {}. Can not properly determine the tunnel. Returning", srcNodeConnector, srcAddress, dstAddress, tunnel);
+            log.error("createDummyTunnel: srcNodeConnector {}, or srcAddress {}, or dstAddress {} are null in tunnel {}. Can not properly determine the tunnel. Returning", srcNodeConnector, srcAddress, dstAddress, tunnel);
             return null;
         }
 
@@ -467,60 +406,10 @@ public class DifferentiatedForwardingImpl implements OVSDBInventoryListener, IfN
         }
         return null;
     }
-    public void setDataPacketService(IDataPacketService s) {
-        log.debug("Setting dataPacketService");
-        this.dataPacketService = s;
-    }
 
-    public void unsetDataPacketService(IDataPacketService s) {
-        if (this.dataPacketService == s) {
-            this.dataPacketService = null;
-        }
-    }
-
-    public void setRouting(IRouting routing) {
-        log.debug("Setting routing");
-        this.routing = routing;
-    }
-
-    public void unsetRouting(IRouting routing) {
-        if (this.routing == routing) {
-            this.routing = null;
-        }
-    }
-
-    public void setTopologyManager(ITopologyManager topologyManager) {
-        log.debug("Setting topologyManager");
-        this.topologyManager = topologyManager;
-    }
-
-    public void unsetTopologyManager(ITopologyManager topologyManager) {
-        if (this.topologyManager == topologyManager) {
-            this.topologyManager = null;
-        }
-    }
-
-    public void setForwardingRulesManager(IForwardingRulesManager forwardingRulesManager) {
-        log.debug("Setting ForwardingRulesManager");
-        this.frm = forwardingRulesManager;
-    }
-
-    public void unsetForwardingRulesManager(
-            IForwardingRulesManager forwardingRulesManager) {
-        if (this.frm == forwardingRulesManager) {
-            this.frm = null;
-        }
-    }
-
-    public void setHostTracker(IfIptoHost hostTracker) {
-        log.debug("Setting HostTracker");
-        this.hostTracker = hostTracker;
-    }
-
-    public void unsetHostTracker(IfIptoHost hostTracker) {
-        if (this.hostTracker == hostTracker) {
-            this.hostTracker = null;
-        }
+    @Override
+    public HashMap<String,List<Tunnel>> getTunnelsMap(){
+        return tunnelsMap;
     }
 
     void setClusterContainerService(IClusterContainerServices s) {
@@ -535,15 +424,18 @@ public class DifferentiatedForwardingImpl implements OVSDBInventoryListener, IfN
         }
     }
 
-    public void setSwitchManager(ISwitchManager switchManager) {
-        this.switchManager = switchManager;
+    public OVSDBConfigService getOVSDBConfigService() {
+        return ovsdbConfigService;
     }
 
-    public void unsetSwitchManager(ISwitchManager switchManager) {
-        if (this.switchManager == switchManager) {
-            this.switchManager = null;
+    public void unsetOVSDBConfigService(OVSDBConfigService s) {
+        if (s == this.ovsdbConfigService) {
+            this.ovsdbConfigService = null;
         }
     }
 
+    public void setOVSDBConfigService(OVSDBConfigService s) {
+        this.ovsdbConfigService = s;
+    }
 
 }
