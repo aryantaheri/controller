@@ -54,7 +54,7 @@ public class Activator extends ComponentActivatorAbstractBase {
             final Dictionary<String, Object> props = new Hashtable<String, Object>();
             props.put("topoListenerName", "routing.yenkshortestpaths");
 
-            c.setInterface(new String[] { ITopologyManagerClusterWideAware.class.getName(), IRouting.class.getName() },
+            c.setInterface(new String[] { ITopologyManagerClusterWideAware.class.getName(), IRouting.class.getName(), IKShortestRoutes.class.getName() },
                     props);
 
             // Now lets add a service dependency to make sure the

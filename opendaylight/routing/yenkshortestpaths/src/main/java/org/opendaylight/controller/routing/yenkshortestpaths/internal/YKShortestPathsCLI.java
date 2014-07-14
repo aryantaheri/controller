@@ -14,7 +14,6 @@ import java.util.List;
 import org.apache.felix.service.command.Descriptor;
 import org.opendaylight.controller.sal.core.Node;
 import org.opendaylight.controller.sal.core.Path;
-import org.opendaylight.controller.sal.routing.IRouting;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.osgi.framework.ServiceRegistration;
 
@@ -49,11 +48,11 @@ public class YKShortestPathsCLI {
             @Descriptor("String representation of the Destination Node") String dstNode,
             @Descriptor("Number of shortest paths (K)") int k) {
         System.out.println("YKShortestPathsCLI.getkShortestRoutes src:" + srcNode + " dst: " + dstNode + " K: " + k);
-        IRouting r = null;
-        Object[] rList = ServiceHelper.getInstances(IRouting.class, container, this, null);
+        IKShortestRoutes r = null;
+        Object[] rList = ServiceHelper.getInstances(IKShortestRoutes.class, container, this, null);
         for (int i = 0; i < rList.length; i++) {
             if (rList[i] instanceof YKShortestPaths)
-                r = (IRouting) rList[i];
+                r = (IKShortestRoutes) rList[i];
         }
 
         if (r == null) {

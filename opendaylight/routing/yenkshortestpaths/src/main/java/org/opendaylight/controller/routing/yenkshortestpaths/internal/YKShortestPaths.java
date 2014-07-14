@@ -50,7 +50,7 @@ import edu.uci.ics.jung.graph.util.EdgeType;
  */
 @SuppressWarnings("rawtypes")
 public class YKShortestPaths implements IRouting,
-        ITopologyManagerClusterWideAware {
+        ITopologyManagerClusterWideAware, IKShortestRoutes {
     private static Logger log = LoggerFactory.getLogger(YKShortestPaths.class);
 
     private ConcurrentMap<Short, Graph<Node, Edge>> topologyBWAware;
@@ -349,8 +349,8 @@ public class YKShortestPaths implements IRouting,
         return topologyChanged;
     }
 
-    private boolean edgeUpdate(Edge e, UpdateType type, Set<Property> props,
-            boolean local) {
+    private boolean edgeUpdate(final Edge e, final UpdateType type, final Set<Property> props,
+            final boolean local) {
         String srcType = null;
         String dstType = null;
 
@@ -394,7 +394,7 @@ public class YKShortestPaths implements IRouting,
     }
 
     @Override
-    public void edgeUpdate(List<TopoEdgeUpdate> topoedgeupdateList) {
+    public void edgeUpdate(final List<TopoEdgeUpdate> topoedgeupdateList) {
         log.debug("Start of a Bulk EdgeUpdate with "
                 + topoedgeupdateList.size() + " elements");
         boolean callListeners = false;
