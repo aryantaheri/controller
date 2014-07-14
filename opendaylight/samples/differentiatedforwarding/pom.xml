@@ -13,6 +13,10 @@
   <packaging>bundle</packaging>
   <dependencies>
     <dependency>
+      <groupId>equinoxSDK381</groupId>
+      <artifactId>org.apache.felix.gogo.runtime</artifactId>
+    </dependency>
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
     </dependency>
@@ -26,7 +30,32 @@
     </dependency>
     <dependency>
       <groupId>org.opendaylight.controller</groupId>
+      <artifactId>routing.yenkshortestpaths</artifactId>
+      <version>0.4.2-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller</groupId>
       <artifactId>sal</artifactId>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.opendaylight.controller</groupId>
+      <artifactId>sal-binding-api</artifactId>
+      <version>1.1-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller</groupId>
+      <artifactId>sal-common-util</artifactId>
+      <version>1.1-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller</groupId>
+      <artifactId>sal-compatibility</artifactId>
+      <version>1.1-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller</groupId>
+      <artifactId>samples.simpleforwarding</artifactId>
     </dependency>
     <dependency>
       <groupId>org.opendaylight.controller</groupId>
@@ -35,6 +64,25 @@
     <dependency>
       <groupId>org.opendaylight.controller</groupId>
       <artifactId>topologymanager</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller.model</groupId>
+      <artifactId>model-flow-base</artifactId>
+      <version>1.1-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller.model</groupId>
+      <artifactId>model-flow-management</artifactId>
+      <version>1.1-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller.model</groupId>
+      <artifactId>model-flow-service</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller.model</groupId>
+      <artifactId>model-inventory</artifactId>
+      <version>1.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.opendaylight.ovsdb</groupId>
@@ -46,6 +94,12 @@
       <artifactId>ovsdb.neutron</artifactId>
       <version>0.7.0-SNAPSHOT</version>
     </dependency>
+    <dependency>
+      <groupId>org.opendaylight.yangtools</groupId>
+      <artifactId>yang-binding</artifactId>
+      <version>0.6.2-SNAPSHOT</version>
+    </dependency>
+    <!-- End of Not sure if all are required -->
   </dependencies>
 
   <build>
@@ -70,6 +124,8 @@
               org.opendaylight.controller.sal.packet,
               org.opendaylight.controller.sal.routing,
               org.opendaylight.controller.topologymanager,
+              org.opendaylight.controller.samples.simpleforwarding,
+              org.opendaylight.controller.routing,
               org.opendaylight.ovsdb.plugin,
               org.opendaylight.ovsdb.lib.notation,
               org.opendaylight.ovsdb.lib.table,
@@ -78,12 +134,32 @@
               org.apache.commons.lang3.builder,
               org.junit;resolution:=optional,
               org.slf4j,
+              org.osgi.framework,
+              org.apache.felix.service.command,
               org.apache.felix.dm</Import-Package>
             <Export-Package>org.opendaylight.controller.samples.differentiatedforwarding</Export-Package>
             <Bundle-Activator>org.opendaylight.controller.samples.differentiatedforwarding.internal.Activator</Bundle-Activator>
           </instructions>
           <manifestLocation>${project.basedir}/META-INF</manifestLocation>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>1.7</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <phase>generate-sources</phase>
+            <configuration>
+              <sources>
+                <source>target/generated-sources/sal</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
