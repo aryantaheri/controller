@@ -23,7 +23,6 @@ import org.opendaylight.controller.sal.core.Path;
 import org.opendaylight.controller.sal.core.Property;
 import org.opendaylight.controller.sal.core.UpdateType;
 import org.opendaylight.controller.sal.routing.IListenRoutingUpdates;
-import org.opendaylight.controller.sal.routing.IRouting;
 import org.opendaylight.controller.sal.topology.TopoEdgeUpdate;
 import org.opendaylight.controller.switchmanager.ISwitchManager;
 import org.opendaylight.controller.topologymanager.ITopologyManager;
@@ -49,8 +48,7 @@ import edu.uci.ics.jung.graph.util.EdgeType;
  *
  */
 @SuppressWarnings("rawtypes")
-public class YKShortestPaths implements IRouting,
-        ITopologyManagerClusterWideAware, IKShortestRoutes {
+public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShortestRoutes {
     private static Logger log = LoggerFactory.getLogger(YKShortestPaths.class);
 
     private ConcurrentMap<Short, Graph<Node, Edge>> topologyBWAware;
@@ -65,135 +63,6 @@ public class YKShortestPaths implements IRouting,
     private ISwitchManager switchManager;
     private ITopologyManager topologyManager;
     private IClusterContainerServices clusterContainerService;
-
-    @Override
-    public synchronized void initMaxThroughput(
-            final Map<Edge, Number> EdgeWeightMap) {
-        if (mtp != null) {
-            log.error("Max Throughput Dijkstra is already enabled!");
-            return;
-        }
-        Transformer<Edge, ? extends Number> mtTransformer = null;
-        if (EdgeWeightMap == null) {
-            mtTransformer = new Transformer<Edge, Double>() {
-                @Override
-                public Double transform(Edge e) {
-                    if (switchManager == null) {
-                        log.error("switchManager is null");
-                        return (double) -1;
-                    }
-                    NodeConnector srcNC = e.getTailNodeConnector();
-                    NodeConnector dstNC = e.getHeadNodeConnector();
-                    if ((srcNC == null) || (dstNC == null)) {
-                        log.error("srcNC:{} or dstNC:{} is null", srcNC, dstNC);
-                        return (double) -1;
-                    }
-                    Bandwidth bwSrc = (Bandwidth) switchManager
-                            .getNodeConnectorProp(srcNC,
-                                    Bandwidth.BandwidthPropName);
-                    Bandwidth bwDst = (Bandwidth) switchManager
-                            .getNodeConnectorProp(dstNC,
-                                    Bandwidth.BandwidthPropName);
-
-                    long srcLinkSpeed = 0, dstLinkSpeed = 0;
-                    if ((bwSrc == null)
-                            || ((srcLinkSpeed = bwSrc.getValue()) == 0)) {
-                        log.debug(
-                                "srcNC: {} - Setting srcLinkSpeed to Default!",
-                                srcNC);
-                        srcLinkSpeed = DEFAULT_LINK_SPEED;
-                    }
-
-                    if ((bwDst == null)
-                            || ((dstLinkSpeed = bwDst.getValue()) == 0)) {
-                        log.debug(
-                                "dstNC: {} - Setting dstLinkSpeed to Default!",
-                                dstNC);
-                        dstLinkSpeed = DEFAULT_LINK_SPEED;
-                    }
-
-                    // TODO: revisit the logic below with the real use case in
-                    // mind
-                    // For now we assume the throughput to be the speed of the
-                    // link itself
-                    // this kind of logic require information that should be
-                    // polled by statistic manager and are not yet available,
-                    // also this service at the moment is not used, so to be
-                    // revisited later on
-                    long avlSrcThruPut = srcLinkSpeed;
-                    long avlDstThruPut = dstLinkSpeed;
-
-                    // Use lower of the 2 available throughput as the available
-                    // throughput
-                    long avlThruPut = avlSrcThruPut < avlDstThruPut ? avlSrcThruPut
-                            : avlDstThruPut;
-
-                    if (avlThruPut <= 0) {
-                        log.debug("Edge {}: Available Throughput {} <= 0!", e,
-                                avlThruPut);
-                        return (double) -1;
-                    }
-                    return (double) (Bandwidth.BW1Pbps / avlThruPut);
-                }
-            };
-        } else {
-            mtTransformer = new Transformer<Edge, Number>() {
-                @Override
-                public Number transform(Edge e) {
-                    return EdgeWeightMap.get(e);
-                }
-            };
-        }
-        Short baseBW = Short.valueOf((short) 0);
-        // Initialize mtp also using the default topo
-        Graph<Node, Edge> g = this.topologyBWAware.get(baseBW);
-        if (g == null) {
-            log.error("Default Topology Graph is null");
-            return;
-        }
-        mtp = new DijkstraShortestPath<Node, Edge>(g, mtTransformer);
-    }
-
-    @Override
-    public synchronized Path getMaxThroughputRoute(Node src, Node dst) {
-        if (mtp == null) {
-            log.error("Max Throughput Path Calculation Uninitialized!");
-            return null;
-        }
-
-        List<Edge> path;
-        try {
-            path = mtp.getMaxThroughputPath(src, dst);
-        } catch (IllegalArgumentException ie) {
-            log.debug("A vertex is yet not known between {} {}", src, dst);
-            return null;
-        }
-        Path res;
-        try {
-            res = new Path(path);
-        } catch (ConstructionException e) {
-            log.debug("A vertex is yet not known between {} {}", src, dst);
-            return null;
-        }
-        return res;
-    }
-
-    @Override
-    public Path getRoute(final Node src, final Node dst) {
-        if ((src == null) || (dst == null)) {
-            return null;
-        }
-        // Returning the shortest path for general purposes
-        return getKShortestRoutes(src, dst, 1).get(0);
-    }
-
-    @Override
-    public synchronized Path getRoute(final Node src, final Node dst,
-            final Short Bw) {
-        log.error("getRoute is not implemented: src {}, dst {}, bw {} ", src,
-                dst, Bw);
-        return null;
-    }
 
     @Override
     public synchronized List<Path> getKShortestRoutes(final Node src, final Node dst,
@@ -231,12 +100,6 @@ public class YKShortestPaths implements IRouting,
     @Override
     public synchronized void clear() {
         yenKShortestPathsAlgo.resetDijkstraShortestPath();
-        clearMaxThroughput();
-    }
-
-    @Override
-    public synchronized void clearMaxThroughput() {
-        // TODO: Implement
     }
 
     /**
