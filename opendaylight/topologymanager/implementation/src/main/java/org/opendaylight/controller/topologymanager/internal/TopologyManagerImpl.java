@@ -94,12 +94,12 @@ public class TopologyManagerImpl implements
     // DB of all the NodeConnectors with an Host attached to it
     private ConcurrentMap<NodeConnector, Set<ImmutablePair<Host, Set<Property>>>> hostsDB;
     // Topology Manager Aware listeners
-    private Set<ITopologyManagerAware> topologyManagerAware = new CopyOnWriteArraySet<ITopologyManagerAware>();
+    private final Set<ITopologyManagerAware> topologyManagerAware = new CopyOnWriteArraySet<ITopologyManagerAware>();
     // Topology Manager Aware listeners - for clusterwide updates
-    private Set<ITopologyManagerClusterWideAware> topologyManagerClusterWideAware =
+    private final Set<ITopologyManagerClusterWideAware> topologyManagerClusterWideAware =
             new CopyOnWriteArraySet<ITopologyManagerClusterWideAware>();
     private ConcurrentMap<String, TopologyUserLinkConfig> userLinksDB;
-    private BlockingQueue<TopoEdgeUpdate> notifyQ = new LinkedBlockingQueue<TopoEdgeUpdate>();
+    private final BlockingQueue<TopoEdgeUpdate> notifyQ = new LinkedBlockingQueue<TopoEdgeUpdate>();
     private volatile Boolean shuttingDown = false;
     private Thread notifyThread;
 
@@ -648,6 +648,9 @@ public class TopologyManagerImpl implements
         case CHANGED:
             Set<Property> oldProps = this.edgesDB.get(e);
 
+            if (oldProps == null){
+                oldProps = new HashSet<Property>();
+            }
             // When property(s) changes lets make sure we can change it
             // all except the creation time stamp because that should
             // be set only when the edge is created
@@ -960,7 +963,7 @@ public class TopologyManagerImpl implements
     class TopologyNotify implements Runnable {
         private final BlockingQueue<TopoEdgeUpdate> notifyQ;
         private TopoEdgeUpdate entry;
-        private List<TopoEdgeUpdate> teuList = new ArrayList<TopoEdgeUpdate>();
+        private final List<TopoEdgeUpdate> teuList = new ArrayList<TopoEdgeUpdate>();
         private boolean notifyListeners;
 
         TopologyNotify(BlockingQueue<TopoEdgeUpdate> notifyQ) {
