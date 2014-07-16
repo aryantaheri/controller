@@ -13,8 +13,15 @@ import java.util.Dictionary;
 import java.util.Hashtable;
 
 import org.apache.felix.dm.Component;
+import org.opendaylight.controller.clustering.services.IClusterContainerServices;
+import org.opendaylight.controller.hosttracker.IfNewHostNotify;
+import org.opendaylight.controller.routing.yenkshortestpaths.internal.IKShortestRoutes;
 import org.opendaylight.controller.sal.core.ComponentActivatorAbstractBase;
+import org.opendaylight.controller.sal.packet.IListenDataPacket;
+import org.opendaylight.controller.sal.routing.IListenRoutingUpdates;
+import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
+import org.opendaylight.controller.switchmanager.IInventoryListener;
 import org.opendaylight.ovsdb.plugin.OVSDBConfigService;
 import org.opendaylight.ovsdb.plugin.OVSDBInventoryListener;
 import org.slf4j.Logger;
@@ -36,13 +43,13 @@ public class Activator extends ComponentActivatorAbstractBase {
      */
     @Override
     public Object[] getImplementations() {
-        Object[] res = { TenantTunnelObserver.class };
+        Object[] res = { TenantTunnelObserver.class, DifferentiatedForwardingImpl.class };
         return res;
     }
 
     @Override
     protected Object[] getGlobalImplementations() {
-        final Object[] res = { TenantTunnelObserverCLI.class };
+        final Object[] res = { TenantTunnelObserverCLI.class, DifferentiatedForwardingCLI.class };
         return res;
     }
 
@@ -63,21 +70,17 @@ public class Activator extends ComponentActivatorAbstractBase {
     public void configureInstance(Component c, Object imp, String containerName) {
         if (imp.equals(TenantTunnelObserver.class)) {
             Dictionary<String, Object> props = new Hashtable<String, Object>();
-            props.put("salListenerName", "differentiatedforwarding");
+            props.put("salListenerName", "tenanttunnelobserver");
 
             // export the service
             c.setInterface(new String[] { OVSDBInventoryListener.class.getName(),
-                    /**IInventoryListener.class.getName(),
-                    IfNewHostNotify.class.getName(),
-                    IListenRoutingUpdates.class.getName(),
-                    IListenDataPacket.class.getName(),**/
                     ITunnelObserver.class.getName()}, props);
 
-//            c.add(createContainerServiceDependency(containerName).setService(
-//                    IClusterContainerServices.class).setCallbacks(
-//                    "setClusterContainerService",
-//                    "unsetClusterContainerService").setRequired(true));
-//
+            c.add(createContainerServiceDependency(containerName).setService(
+                    IClusterContainerServices.class).setCallbacks(
+                    "setClusterContainerService",
+                    "unsetClusterContainerService").setRequired(false));
+
 //            c.add(createContainerServiceDependency(containerName).setService(
 //                    ISwitchManager.class).setCallbacks("setSwitchManager",
 //                    "unsetSwitchManager").setRequired(true));
@@ -103,11 +106,38 @@ public class Activator extends ComponentActivatorAbstractBase {
 //                    IDataPacketService.class).setCallbacks("setDataPacketService",
 //                   "unsetDataPacketService").setRequired(false));
 
+
+
             c.add(createContainerServiceDependency(containerName).setService(
                     OVSDBConfigService.class).setCallbacks("setOVSDBConfigService",
                     "unsetOVSDBConfigService").setRequired(false));
 
         }
+        else if (imp.equals(DifferentiatedForwardingImpl.class)){
+            Dictionary<String, Object> props = new Hashtable<String, Object>();
+            props.put("salListenerName", "differentiatedforwardingimpl");
+
+            // export the service
+            c.setInterface(new String[] { /**OVSDBInventoryListener.class.getName(),**/
+                    IInventoryListener.class.getName(),
+                    IfNewHostNotify.class.getName(),
+                    IListenRoutingUpdates.class.getName(),
+                    IListenDataPacket.class.getName(),
+
+                    IForwarding.class.getName()}, props);
+
+
+            c.add(createContainerServiceDependency(containerName)
+                    .setService(IKShortestRoutes.class)
+                    .setCallbacks("setKShortestRoutes",
+                            "unsetKShortestRoutes").setRequired(true));
+            c.add(createContainerServiceDependency(containerName).setService(
+                    IClusterContainerServices.class).setCallbacks(
+                    "setClusterContainerService",
+                    "unsetClusterContainerService").setRequired(true));
+        }
+
+
 //        else if (imp.equals(SimpleBroadcastHandlerImpl.class)) {
 //            Dictionary<String, String> props = new Hashtable<String, String>();
 //            props.put("salListenerName", "simplebroadcasthandler");

@@ -37,11 +37,14 @@
       <groupId>org.opendaylight.controller</groupId>
       <artifactId>sal</artifactId>
     </dependency>
-    
     <dependency>
       <groupId>org.opendaylight.controller</groupId>
       <artifactId>sal-binding-api</artifactId>
       <version>1.1-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.controller</groupId>
+      <artifactId>sal-common-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.opendaylight.controller</groupId>
@@ -123,20 +126,26 @@
               org.opendaylight.controller.sal.match,
               org.opendaylight.controller.sal.packet,
               org.opendaylight.controller.sal.routing,
+              org.opendaylight.controller.md.sal.common.api,
               org.opendaylight.controller.topologymanager,
               org.opendaylight.controller.samples.simpleforwarding,
-              org.opendaylight.controller.routing,
+              org.opendaylight.controller.routing.yenkshortestpaths.internal,
+              org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819,
+              org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes,
               org.opendaylight.ovsdb.plugin,
               org.opendaylight.ovsdb.lib.notation,
               org.opendaylight.ovsdb.lib.table,
               org.opendaylight.ovsdb.lib.table.internal,
               org.opendaylight.ovsdb.neutron,
+              org.opendaylight.yangtools.yang.binding,
+              org.opendaylight.yangtools.concepts,
               org.apache.commons.lang3.builder,
               org.junit;resolution:=optional,
               org.slf4j,
               org.osgi.framework,
               org.apache.felix.service.command,
-              org.apache.felix.dm</Import-Package>
+              org.apache.felix.dm,
+              *</Import-Package>
             <Export-Package>org.opendaylight.controller.samples.differentiatedforwarding</Export-Package>
             <Bundle-Activator>org.opendaylight.controller.samples.differentiatedforwarding.internal.Activator</Bundle-Activator>
           </instructions>

@@ -75,6 +75,7 @@
               org.osgi.framework,
               org.apache.felix.service.command,
               org.junit;resolution:=optional</Import-Package>
+            <Export-Package>org.opendaylight.controller.routing.yenkshortestpaths.internal</Export-Package>
             <Bundle-Activator>org.opendaylight.controller.routing.yenkshortestpaths.internal.Activator</Bundle-Activator>
             <Embed-Dependency>mulavito.algorithms;type=!pom;inline=false</Embed-Dependency>
             <Embed-Transitive>true</Embed-Transitive>

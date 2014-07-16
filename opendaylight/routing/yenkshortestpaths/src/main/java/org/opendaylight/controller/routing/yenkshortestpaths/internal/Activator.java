@@ -5,15 +5,14 @@ import java.util.Dictionary;
 import java.util.Hashtable;
 
 import org.apache.felix.dm.Component;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.opendaylight.controller.clustering.services.IClusterContainerServices;
 import org.opendaylight.controller.sal.core.ComponentActivatorAbstractBase;
 import org.opendaylight.controller.sal.routing.IListenRoutingUpdates;
-import org.opendaylight.controller.sal.routing.IRouting;
 import org.opendaylight.controller.switchmanager.ISwitchManager;
 import org.opendaylight.controller.topologymanager.ITopologyManager;
 import org.opendaylight.controller.topologymanager.ITopologyManagerClusterWideAware;
-import org.opendaylight.controller.clustering.services.IClusterContainerServices;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Activator extends ComponentActivatorAbstractBase {
     protected static final Logger logger = LoggerFactory
@@ -52,10 +51,10 @@ public class Activator extends ComponentActivatorAbstractBase {
         if (imp.equals(YKShortestPaths.class)) {
             // export the service
             final Dictionary<String, Object> props = new Hashtable<String, Object>();
-            props.put("topoListenerName", "routing.yenkshortestpaths");
+            props.put("topoListenerName", "routing.yenkshortestpaths.internal");
 
-            c.setInterface(new String[] { ITopologyManagerClusterWideAware.class.getName(), IRouting.class.getName(), IKShortestRoutes.class.getName() },
-                    props);
+            c.setInterface(new String[] { ITopologyManagerClusterWideAware.class.getName(), IKShortestRoutes.class.getName() },
+                    /**props**/ null );
 
             // Now lets add a service dependency to make sure the
             // provider of service exists

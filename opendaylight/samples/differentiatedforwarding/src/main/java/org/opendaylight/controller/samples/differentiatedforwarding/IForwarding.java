@@ -10,4 +10,5 @@ import org.opendaylight.controller.samples.simpleforwarding.HostNodePair;
 public interface IForwarding {
 
     public ConcurrentMap<HostNodePair, HashMap<NodeConnector, FlowEntry>> getRulesDB();
+    public void programTunnelForwarding(Tunnel tunnel, int classNum, boolean write);
 }
