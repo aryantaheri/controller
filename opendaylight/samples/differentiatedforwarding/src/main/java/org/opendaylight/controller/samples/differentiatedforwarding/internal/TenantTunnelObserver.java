@@ -164,6 +164,7 @@ public class TenantTunnelObserver implements OVSDBInventoryListener, ITunnelObse
     }
 
     private void startTunnelEventHandler(){
+        log.info("startTunnelEventHandler: is started");
         tunnelEventHandler.submit(new Runnable()  {
             @Override
             public void run() {
@@ -171,8 +172,12 @@ public class TenantTunnelObserver implements OVSDBInventoryListener, ITunnelObse
                     SouthboundInterfaceEvent ev;
                     try {
                         ev = ovsdbTunnelInterfaceEvents.take();
+                        log.trace("startTunnelEventHandler: Queue size {}", ovsdbTunnelInterfaceEvents.size());
+                        log.trace("startTunnelEventHandler: ");
+                        log.trace("startTunnelEventHandler: take event {}", ev);
                         updateTunnelsFromInterfaceEvent(ev.getNode(), ev.getUuid(), (Interface)ev.getRow(), (Interface)ev.getOldRow(),
                                 ev.getContext(),ev.getAction());
+                        log.trace("startTunnelEventHandler: processed event {}", ev);
                     } catch (InterruptedException e) {
                         log.info("The event handler thread was interrupted, shutting down", e);
                         return;
@@ -203,7 +208,7 @@ public class TenantTunnelObserver implements OVSDBInventoryListener, ITunnelObse
         }
     }
 
-    private void updateTunnelsFromInterfaceEvent(Node node, String uuid, Interface intf, Interface oldIntf, Object context, Action action) {
+    private synchronized void updateTunnelsFromInterfaceEvent(Node node, String uuid, Interface intf, Interface oldIntf, Object context, Action action) {
         log.debug("updateTunnelsFromInterfaceEvent: node:{} uuid:{} intf:{} oldIntf:{} context:{} action:{}", node, uuid, intf, oldIntf, context, action);
         String remoteIP = intf.getOptions().get("remote_ip");
         String localIP = intf.getOptions().get("local_ip");
@@ -247,6 +252,8 @@ public class TenantTunnelObserver implements OVSDBInventoryListener, ITunnelObse
             if (!tunnels.contains(tunnel)){
                 log.debug("updateTunnelsFromInterfaceEvent: a new tunnel is discovered (ADD ACTION): {}", tunnel);
                 tunnels.add(tunnel);
+            } else {
+                log.debug("updateTunnelsFromInterfaceEvent: tunnel {} exists (ADD ACTION): {}", tunnel);
             }
             break;
 
@@ -262,10 +269,16 @@ public class TenantTunnelObserver implements OVSDBInventoryListener, ITunnelObse
                     break;
                 }
             }
-            String oldRemoteIP = oldIntf.getOptions().get("remote_ip");
-            String oldLocalIP = oldIntf.getOptions().get("local_ip");
-            String oldFlowKey = oldIntf.getOptions().get("key");
-            Tunnel oldTunnel = findTunnel(oldLocalIP, oldRemoteIP, oldFlowKey);
+            Tunnel oldTunnel = null;
+            String oldRemoteIP;
+            String oldLocalIP;
+            String oldFlowKey = null;
+            if (oldIntf.getOptions() != null) {
+                oldRemoteIP = oldIntf.getOptions().get("remote_ip");
+                oldLocalIP = oldIntf.getOptions().get("local_ip");
+                oldFlowKey = oldIntf.getOptions().get("key");
+                oldTunnel = findTunnel(oldLocalIP, oldRemoteIP, oldFlowKey);
+            }
             if (oldTunnel != null){
                 if (!oldFlowKey.equalsIgnoreCase(flowKey)){
                     tunnelsMap.get(oldFlowKey).remove(oldTunnel);
@@ -310,9 +323,13 @@ public class TenantTunnelObserver implements OVSDBInventoryListener, ITunnelObse
     private Tunnel createDummyTunnel(Node node, Interface intf, String uuid, String localIP, String remoteIP, String flowKey){
      // FIXME: This can be terribly bad, NodeConnector only accepts Short values, while OVSDB stores them in BigInteger
         log.debug("createDummyTunnel: node {} intf {} UUID {} localIP {} remoteIP {} flowKey {}", node, intf, uuid, localIP, remoteIP, flowKey);
+        if (intf.getOfport() == null || intf.getOfport().size() == 0){
+            log.trace("createDummyTunnel: interface OFPort is not present.");
+            return null;
+        }
         Short ofPortShort = new Short(((BigInteger)intf.getOfport().toArray()[0]).shortValue());
         if(ofPortShort <= 0){
-            log.debug("createDummyTunnel: received OpenFlowPort {} is not valid. srcNodeConnctor is not available. Returning", ofPortShort);
+            log.trace("createDummyTunnel: received OpenFlowPort {} is not valid. srcNodeConnctor is not available. Returning", ofPortShort);
             return null;
         }
         Node ofNode = getOpenFlowNode(node, uuid, intf);
@@ -337,7 +354,7 @@ public class TenantTunnelObserver implements OVSDBInventoryListener, ITunnelObse
             log.error("createDummyTunnel: srcNodeConnector {}, or srcAddress {}, or dstAddress {} are null in tunnel {}. Can not properly determine the tunnel. Returning", srcNodeConnector, srcAddress, dstAddress, tunnel);
             return null;
         }
-
+        log.trace("createDummyTunnel: returning tunnel {}", tunnel);
         return tunnel;
     }
 

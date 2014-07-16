@@ -65,7 +65,6 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.N
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
-import org.opendaylight.yangtools.yang.binding.InstanceIdentifier.InstanceIdentifierBuilder;
 import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -172,7 +171,8 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      * @param tunnel
      * @param classNum the Kth shortest path. K > 0
      */
-    private void programTunnelForwarding(Tunnel tunnel, int classNum, boolean write){
+    @Override
+    public void programTunnelForwarding(Tunnel tunnel, int classNum, boolean write){
         log.debug("programTunnelForwarding: Tunnel {} classNum {} write {}", tunnel, classNum, write);
         org.opendaylight.controller.sal.core.Node srcNode = tunnel.getSrcNodeConnector().getNode();
         org.opendaylight.controller.sal.core.Node dstNode = tunnel.getDstNodeConnector().getNode();
