@@ -19,4 +19,5 @@ public interface IKShortestRoutes {
      * @return a List of {@link org.opendaylight.controller.sal.core.Path}
      */
     public List<Path> getKShortestRoutes(Node src, Node dst, int k);
+    public void clear();
 }
