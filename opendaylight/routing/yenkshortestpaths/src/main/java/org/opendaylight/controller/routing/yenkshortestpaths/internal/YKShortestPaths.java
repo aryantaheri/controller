@@ -58,11 +58,13 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
     private Graph<Node, WeightedEdge> ykspTopology;
     private Yen<Node, WeightedEdge> yenKShortestPathsAlgo;
     private static final long DEFAULT_LINK_SPEED = Bandwidth.BW1Gbps;
+    private Set<Edge> ignoredEdges;
 
     private Set<IListenRoutingUpdates> routingAware;
     private ISwitchManager switchManager;
     private ITopologyManager topologyManager;
     private IClusterContainerServices clusterContainerService;
+
 
     @Override
     public synchronized List<Path> getKShortestRoutes(final Node src, final Node dst,
@@ -214,6 +216,10 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
 
     private boolean edgeUpdate(final Edge e, final UpdateType type, final Set<Property> props,
             final boolean local) {
+        if (ignoredEdges.contains(e)) {
+            log.debug("edgeUpdate: edge {} is in ignoredEdges. Ignoring the update", e);
+            return false;
+        }
         String srcType = null;
         String dstType = null;
 
@@ -254,6 +260,20 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
 
         boolean topologyChanged = updateTopo(e, weight, type);
         return topologyChanged;
+    }
+
+    @Override
+    public synchronized void ignoreEdge(Edge edge, boolean ignoreReverseAsWell) {
+        boolean added = ignoredEdges.add(edge);
+        if(added){
+            // TODO: If there are multiple edges between two nodes, this will fail.
+            WeightedEdge weightedEdge = ykspTopology.findEdge(edge.getTailNodeConnector().getNode(), edge.getHeadNodeConnector().getNode());
+            boolean topologyChanged = ykspTopology.removeEdge(weightedEdge);
+            log.debug("ignoreEdge: new {} topologyChanged {}", edge, topologyChanged);
+        } else {
+            log.trace("ignoreEdge: exist {}", edge);
+        }
+        if(ignoreReverseAsWell) ignoreEdge(edge.reverse(), false);
     }
 
     @Override
@@ -314,6 +334,7 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
         this.ykspTopology = new DirectedSparseGraph<Node, WeightedEdge>();
         this.yenKShortestPathsAlgo = new Yen<Node, WeightedEdge>(ykspTopology,
                 weightTransformer);
+        this.ignoredEdges = new HashSet<Edge>();
     }
 
     /**
@@ -480,6 +501,7 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
             return edge.getWeight();
         }
     };
+
 
 
 }
