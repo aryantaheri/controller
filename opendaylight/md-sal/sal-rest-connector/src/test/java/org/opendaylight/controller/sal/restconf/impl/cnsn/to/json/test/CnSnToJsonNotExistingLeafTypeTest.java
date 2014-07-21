@@ -9,6 +9,7 @@ package org.opendaylight.controller.sal.restconf.impl.cnsn.to.json.test;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.opendaylight.controller.sal.restconf.impl.test.TestUtils.containsStringData;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -45,12 +46,12 @@ public class CnSnToJsonNotExistingLeafTypeTest extends YangAndXmlAndDataSchemaLo
     @Test
     public void incorrectTopLevelElementTest() throws WebApplicationException, IOException {
         String jsonOutput = null;
-        jsonOutput = TestUtils
-                .writeCompNodeWithSchemaContextToOutput(prepareCompositeNode(),
-                        Collections.<Module>emptySet(), prepareDataSchemaNode(),
-                        StructuredDataToJsonProvider.INSTANCE);
+        jsonOutput = TestUtils.writeCompNodeWithSchemaContextToOutput(prepareCompositeNode(),
+                Collections.<Module> emptySet(), prepareDataSchemaNode(), StructuredDataToJsonProvider.INSTANCE);
         assertNotNull(jsonOutput);
-        assertTrue(jsonOutput.contains("\"lf1\": \"\""));
+
+        // pattern for e.g. > "lf1" : "" < or >"lf1":""<
+        assertTrue(containsStringData(jsonOutput, "\"lf1\"", ":", "\"\""));
     }
 
     private CompositeNode prepareCompositeNode() {

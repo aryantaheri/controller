@@ -208,7 +208,8 @@ public class ToSalConversionsUtils {
                 Uri nodeConnector = ((OutputActionCase) sourceAction).getOutputAction().getOutputNodeConnector();
                 if (nodeConnector != null) {
                     //for (Uri uri : nodeConnectors) {
-                        targetAction.add(new Output(fromNodeConnectorRef(nodeConnector, node)));
+                    Uri fullNodeConnector = new Uri(node.getType()+":"+node.getID()+":"+nodeConnector.getValue());
+                        targetAction.add(new Output(fromNodeConnectorRef(fullNodeConnector, node)));
                     //}
                 }
             } else if (sourceAction instanceof PopMplsActionCase) {
@@ -376,12 +377,19 @@ public class ToSalConversionsUtils {
         return null;
     }
 
-    private static NodeConnector fromNodeConnectorRef(Uri uri, Node node) {
+    /**
+     * @param openflow nodeConnector uri
+     * @param node
+     * @return assembled nodeConnector
+     */
+    public static NodeConnector fromNodeConnectorRef(Uri uri, Node node) {
         NodeConnector nodeConnector = null;
         try {
-            nodeConnector = new NodeConnector(NodeMapping.MD_SAL_TYPE,node.getNodeIDString()+":"+uri.getValue(),node);
+            NodeConnectorId nodeConnectorId = new NodeConnectorId(uri.getValue());
+            nodeConnector = NodeMapping.toADNodeConnector(nodeConnectorId, node);
         } catch (ConstructionException e) {
-            e.printStackTrace();
+            LOG.warn("nodeConnector creation failed at node: {} with nodeConnectorUri: {}",
+                    node, uri.getValue());
         }
         return nodeConnector;
     }
@@ -422,13 +430,17 @@ public class ToSalConversionsUtils {
         if (vlanMatch != null) {
             VlanId vlanId = vlanMatch.getVlanId();
             if (vlanId != null) {
-                org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.VlanId vlanIdInner = vlanId
-                        .getVlanId();
-                if (vlanIdInner != null) {
-                    Integer vlanValue = vlanIdInner.getValue();
-                    if (vlanValue != null) {
-                        target.setField(DL_VLAN, vlanValue.shortValue());
+                if (Boolean.TRUE.equals(vlanId.isVlanIdPresent())) {
+                    org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.VlanId vlanIdInner = vlanId
+                            .getVlanId();
+                    if (vlanIdInner != null) {
+                        Integer vlanValue = vlanIdInner.getValue();
+                        if (vlanValue != null) {
+                            target.setField(DL_VLAN, vlanValue.shortValue());
+                        }
                     }
+                } else {
+                    target.setField(DL_VLAN, MatchType.DL_VLAN_NONE);
                 }
             }
             VlanPcp vlanPcp = vlanMatch.getVlanPcp();

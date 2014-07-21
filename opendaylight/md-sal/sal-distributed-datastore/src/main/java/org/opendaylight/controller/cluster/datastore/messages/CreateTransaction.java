@@ -9,5 +9,14 @@
 package org.opendaylight.controller.cluster.datastore.messages;
 
 public class CreateTransaction {
+    private final String transactionId;
 
+    public CreateTransaction(String transactionId){
+
+        this.transactionId = transactionId;
+    }
+
+    public String getTransactionId() {
+        return transactionId;
+    }
 }

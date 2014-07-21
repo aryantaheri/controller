@@ -79,6 +79,8 @@
    <feature name="base-eclipselink-persistence" description="EclipseLink Persistence API" version="2.0.4.v201112161009">
       <bundle start="true" start-level="35">mvn:eclipselink/javax.persistence/2.0.4.v201112161009</bundle>
       <bundle start="true" start-level="35">mvn:eclipselink/javax.resource/1.5.0.v200906010428</bundle>
+      <bundle start="true" start-level="35">mvn:org.eclipse.persistence/org.eclipse.persistence.moxy/2.5.0</bundle>
+      <bundle start="true" start-level="35">mvn:org.eclipse.persistence/org.eclipse.persistence.core/2.5.0</bundle>
    </feature>
    <feature name="base-gemini-web" description="Gemini Web" version="${geminiweb.version}">
       <feature>http</feature>
@@ -121,6 +123,7 @@
       <bundle start="true" start-level="35">mvn:orbit/org.apache.juli.extras/7.0.32.v201211081135</bundle>
       <bundle start="true" start-level="35">mvn:orbit/org.apache.tomcat.api/7.0.32.v201211081135</bundle>
       <bundle start="true" start-level="35">mvn:orbit/org.apache.tomcat.util/7.0.32.v201211201952</bundle>
+      <bundle start="true" start-level="35">wrap:mvn:virgomirror/org.eclipse.jdt.core.compiler.batch/3.8.0.I20120518-2145</bundle>
    </feature>
    <feature name="base-spring" description="Opendaylight Spring Support" version="${spring.version}">
       <bundle>mvn:org.ow2.asm/asm-all/${asm.version}</bundle>

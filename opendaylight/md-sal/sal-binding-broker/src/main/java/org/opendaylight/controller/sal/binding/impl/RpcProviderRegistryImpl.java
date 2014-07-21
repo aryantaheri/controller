@@ -7,6 +7,19 @@
  */
 package org.opendaylight.controller.sal.binding.impl;
 
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+
+import java.util.EventListener;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.WeakHashMap;
+
 import org.opendaylight.controller.md.sal.common.api.routing.RouteChange;
 import org.opendaylight.controller.md.sal.common.api.routing.RouteChangeListener;
 import org.opendaylight.controller.md.sal.common.api.routing.RouteChangePublisher;
@@ -28,23 +41,21 @@ import org.opendaylight.yangtools.yang.binding.RpcService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.EventListener;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
-import java.util.WeakHashMap;
-
-import static com.google.common.base.Preconditions.checkState;
-
-public class RpcProviderRegistryImpl implements //
-        RpcProviderRegistry, //
-        RouteChangePublisher<RpcContextIdentifier, InstanceIdentifier<?>> {
+public class RpcProviderRegistryImpl implements RpcProviderRegistry, RouteChangePublisher<RpcContextIdentifier, InstanceIdentifier<?>> {
 
     private RuntimeCodeGenerator rpcFactory = SingletonHolder.RPC_GENERATOR_IMPL;
 
-    // publicProxies is a cache of proxy objects where each value in the map corresponds to a specific RpcService
-    private final Map<Class<? extends RpcService>, RpcService> publicProxies = new WeakHashMap<>();
+    // cache of proxy objects where each value in the map corresponds to a specific RpcService
+    private final LoadingCache<Class<? extends RpcService>, RpcService> publicProxies = CacheBuilder.newBuilder().weakKeys().
+            build(new CacheLoader<Class<? extends RpcService>, RpcService>() {
+                @Override
+                public RpcService load(final Class<? extends RpcService> type) {
+                    final RpcService proxy = rpcFactory.getDirectProxyFor(type);
+                    LOG.debug("Created {} as public proxy for {} in {}", proxy, type.getSimpleName(), this);
+                    return proxy;
+                }
+            });
+
     private final Map<Class<? extends RpcService>, RpcRouter<?>> rpcRouters = new WeakHashMap<>();
     private final ListenerRegistry<RouteChangeListener<RpcContextIdentifier, InstanceIdentifier<?>>> routeChangeListeners = ListenerRegistry
             .create();
@@ -60,19 +71,19 @@ public class RpcProviderRegistryImpl implements //
         return name;
     }
 
-    public RpcProviderRegistryImpl(String name) {
+    public RpcProviderRegistryImpl(final String name) {
         super();
         this.name = name;
     }
 
     @Override
-    public final <T extends RpcService> RoutedRpcRegistration<T> addRoutedRpcImplementation(Class<T> type,
-            T implementation) throws IllegalStateException {
+    public final <T extends RpcService> RoutedRpcRegistration<T> addRoutedRpcImplementation(final Class<T> type,
+            final T implementation) throws IllegalStateException {
         return getRpcRouter(type).addRoutedRpcImplementation(implementation);
     }
 
     @Override
-    public final <T extends RpcService> RpcRegistration<T> addRpcImplementation(Class<T> type, T implementation)
+    public final <T extends RpcService> RpcRegistration<T> addRpcImplementation(final Class<T> type, final T implementation)
             throws IllegalStateException {
         @SuppressWarnings("unchecked")
         RpcRouter<T> potentialRouter = (RpcRouter<T>) rpcRouters.get(type);
@@ -92,31 +103,12 @@ public class RpcProviderRegistryImpl implements //
 
     @SuppressWarnings("unchecked")
     @Override
-    public final <T extends RpcService> T getRpcService(Class<T> type) {
-
-        T potentialProxy = (T) publicProxies.get(type);
-        if (potentialProxy != null) {
-            return potentialProxy;
-        }
-        synchronized (this) {
-            /**
-             * Potential proxy could be instantiated by other thread while we
-             * were waiting for the lock.
-             */
-
-            potentialProxy = (T) publicProxies.get(type);
-            if (potentialProxy != null) {
-                return potentialProxy;
-            }
-            T proxy = rpcFactory.getDirectProxyFor(type);
-            LOG.debug("Created {} as public proxy for {} in {}", proxy, type.getSimpleName(), this);
-            publicProxies.put(type, proxy);
-            return proxy;
-        }
+    public final <T extends RpcService> T getRpcService(final Class<T> type) {
+        return (T) publicProxies.getUnchecked(type);
     }
 
-    @SuppressWarnings("unchecked")
-    public <T extends RpcService> RpcRouter<T> getRpcRouter(Class<T> type) {
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public <T extends RpcService> RpcRouter<T> getRpcRouter(final Class<T> type) {
         RpcRouter<?> potentialRouter = rpcRouters.get(type);
         if (potentialRouter != null) {
             return (RpcRouter<T>) potentialRouter;
@@ -140,7 +132,7 @@ public class RpcProviderRegistryImpl implements //
         }
     }
 
-    private void notifyGlobalRpcAdded(Class<? extends RpcService> type) {
+    private void notifyGlobalRpcAdded(final Class<? extends RpcService> type) {
         for(ListenerRegistration<GlobalRpcRegistrationListener> listener : globalRpcListeners) {
             try {
                 listener.getInstance().onGlobalRpcRegistered(type);
@@ -151,7 +143,7 @@ public class RpcProviderRegistryImpl implements //
 
     }
 
-    private void notifyListenersRoutedCreated(RpcRouter<?> router) {
+    private void notifyListenersRoutedCreated(final RpcRouter<?> router) {
 
         for (ListenerRegistration<RouterInstantiationListener> listener : routerInstantiationListener) {
             try {
@@ -164,7 +156,7 @@ public class RpcProviderRegistryImpl implements //
     }
 
     public ListenerRegistration<RouterInstantiationListener> registerRouterInstantiationListener(
-            RouterInstantiationListener listener) {
+            final RouterInstantiationListener listener) {
         ListenerRegistration<RouterInstantiationListener> reg = routerInstantiationListener.register(listener);
         try {
             for (RpcRouter<?> router : rpcRouters.values()) {
@@ -176,9 +168,10 @@ public class RpcProviderRegistryImpl implements //
         return reg;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public <L extends RouteChangeListener<RpcContextIdentifier, InstanceIdentifier<?>>> ListenerRegistration<L> registerRouteChangeListener(
-            L listener) {
+            final L listener) {
         return (ListenerRegistration<L>) routeChangeListeners.register(listener);
     }
 
@@ -186,7 +179,7 @@ public class RpcProviderRegistryImpl implements //
         return rpcFactory;
     }
 
-    public void setRpcFactory(RuntimeCodeGenerator rpcFactory) {
+    public void setRpcFactory(final RuntimeCodeGenerator rpcFactory) {
         this.rpcFactory = rpcFactory;
     }
 
@@ -194,7 +187,7 @@ public class RpcProviderRegistryImpl implements //
         void onRpcRouterCreated(RpcRouter<?> router);
     }
 
-    public ListenerRegistration<GlobalRpcRegistrationListener> registerGlobalRpcRegistrationListener(GlobalRpcRegistrationListener listener) {
+    public ListenerRegistration<GlobalRpcRegistrationListener> registerGlobalRpcRegistrationListener(final GlobalRpcRegistrationListener listener) {
         return globalRpcListeners.register(listener);
     }
 
@@ -204,17 +197,16 @@ public class RpcProviderRegistryImpl implements //
 
     }
 
-    private class RouteChangeForwarder<T extends RpcService> implements
-            RouteChangeListener<Class<? extends BaseIdentity>, InstanceIdentifier<?>> {
+    private class RouteChangeForwarder<T extends RpcService> implements RouteChangeListener<Class<? extends BaseIdentity>, InstanceIdentifier<?>> {
 
         private final Class<T> type;
 
-        public RouteChangeForwarder(Class<T> type) {
+        public RouteChangeForwarder(final Class<T> type) {
             this.type = type;
         }
 
         @Override
-        public void onRouteChange(RouteChange<Class<? extends BaseIdentity>, InstanceIdentifier<?>> change) {
+        public void onRouteChange(final RouteChange<Class<? extends BaseIdentity>, InstanceIdentifier<?>> change) {
             Map<RpcContextIdentifier, Set<InstanceIdentifier<?>>> announcements = new HashMap<>();
             for (Entry<Class<? extends BaseIdentity>, Set<InstanceIdentifier<?>>> entry : change.getAnnouncements()
                     .entrySet()) {
@@ -239,13 +231,12 @@ public class RpcProviderRegistryImpl implements //
         }
     }
 
-    public static class RpcProxyRegistration<T extends RpcService> extends AbstractObjectRegistration<T> implements
-            RpcRegistration<T> {
+    public static class RpcProxyRegistration<T extends RpcService> extends AbstractObjectRegistration<T> implements RpcRegistration<T> {
 
         private final Class<T> serviceType;
         private RpcProviderRegistryImpl registry;
 
-        public RpcProxyRegistration(Class<T> type, T service, RpcProviderRegistryImpl registry) {
+        public RpcProxyRegistration(final Class<T> type, final T service, final RpcProviderRegistryImpl registry) {
             super(service);
             this.serviceType = type;
             this.registry =  registry;
