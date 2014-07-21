@@ -14,16 +14,20 @@ import java.util.Hashtable;
 
 import org.apache.felix.dm.Component;
 import org.opendaylight.controller.clustering.services.IClusterContainerServices;
+import org.opendaylight.controller.forwardingrulesmanager.IForwardingRulesManager;
 import org.opendaylight.controller.hosttracker.IfNewHostNotify;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.IKShortestRoutes;
+import org.opendaylight.controller.sal.binding.api.BindingAwareBroker;
 import org.opendaylight.controller.sal.core.ComponentActivatorAbstractBase;
+import org.opendaylight.controller.sal.flowprogrammer.IFlowProgrammerService;
 import org.opendaylight.controller.sal.packet.IListenDataPacket;
 import org.opendaylight.controller.sal.routing.IListenRoutingUpdates;
 import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
 import org.opendaylight.controller.switchmanager.IInventoryListener;
-import org.opendaylight.ovsdb.plugin.OVSDBConfigService;
-import org.opendaylight.ovsdb.plugin.OVSDBInventoryListener;
+import org.opendaylight.controller.switchmanager.ISwitchManager;
+import org.opendaylight.ovsdb.plugin.OvsdbConfigService;
+import org.opendaylight.ovsdb.plugin.OvsdbInventoryListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +47,7 @@ public class Activator extends ComponentActivatorAbstractBase {
      */
     @Override
     public Object[] getImplementations() {
-        Object[] res = { TenantTunnelObserver.class, DifferentiatedForwardingImpl.class };
+        Object[] res = { TenantTunnelObserver.class, DifferentiatedForwardingImpl.class, MDSALConsumer.class };
         return res;
     }
 
@@ -73,7 +77,7 @@ public class Activator extends ComponentActivatorAbstractBase {
             props.put("salListenerName", "tenanttunnelobserver");
 
             // export the service
-            c.setInterface(new String[] { OVSDBInventoryListener.class.getName(),
+            c.setInterface(new String[] { OvsdbInventoryListener.class.getName(),
                     ITunnelObserver.class.getName()}, props);
 
             c.add(createContainerServiceDependency(containerName).setService(
@@ -106,14 +110,17 @@ public class Activator extends ComponentActivatorAbstractBase {
 //                    IDataPacketService.class).setCallbacks("setDataPacketService",
 //                   "unsetDataPacketService").setRequired(false));
 
-
+            c.add(createContainerServiceDependency(containerName)
+                    .setService(IKShortestRoutes.class)
+                    .setCallbacks("setKShortestRoutes",
+                            "unsetKShortestRoutes").setRequired(true));
 
             c.add(createContainerServiceDependency(containerName).setService(
-                    OVSDBConfigService.class).setCallbacks("setOVSDBConfigService",
+                    OvsdbConfigService.class).setCallbacks("setOVSDBConfigService",
                     "unsetOVSDBConfigService").setRequired(false));
 
         }
-        else if (imp.equals(DifferentiatedForwardingImpl.class)){
+        if (imp.equals(DifferentiatedForwardingImpl.class)){
             Dictionary<String, Object> props = new Hashtable<String, Object>();
             props.put("salListenerName", "differentiatedforwardingimpl");
 
@@ -126,18 +133,42 @@ public class Activator extends ComponentActivatorAbstractBase {
 
                     IForwarding.class.getName()}, props);
 
+            c.add(createContainerServiceDependency(containerName)
+                    .setService(ISwitchManager.class)
+                    .setCallbacks("setSwitchManager", "unsetSwitchManager")
+                    .setRequired(false));
 
             c.add(createContainerServiceDependency(containerName)
                     .setService(IKShortestRoutes.class)
                     .setCallbacks("setKShortestRoutes",
                             "unsetKShortestRoutes").setRequired(true));
+
             c.add(createContainerServiceDependency(containerName).setService(
                     IClusterContainerServices.class).setCallbacks(
                     "setClusterContainerService",
                     "unsetClusterContainerService").setRequired(true));
+
         }
+        if (imp.equals(MDSALConsumer.class)) {
+            c.setInterface(IMDSALConsumer.class.getName(), null);
+        }
+        if (imp.equals(MDSALProvider.class)) {
+            c.setInterface(IMDSALProvider.class.getName(), null);
+        }
+        c.add(createServiceDependency()
+                .setService(BindingAwareBroker.class)
+                .setCallbacks("setBindingAwareBroker", "unsetBindingAwareBroker")
+                .setRequired(true));
 
+        c.add(createServiceDependency().
+                setService(IForwardingRulesManager.class).
+                setCallbacks("setForwardingRulesManager", "unsetForwardingRulesManager").
+                setRequired(true));
 
+        c.add(createContainerServiceDependency(containerName).setService(
+                IFlowProgrammerService.class).setCallbacks(
+                "setFlowProgrammerService", "unsetFlowProgrammerService")
+                .setRequired(true));
 //        else if (imp.equals(SimpleBroadcastHandlerImpl.class)) {
 //            Dictionary<String, String> props = new Hashtable<String, String>();
 //            props.put("salListenerName", "simplebroadcasthandler");

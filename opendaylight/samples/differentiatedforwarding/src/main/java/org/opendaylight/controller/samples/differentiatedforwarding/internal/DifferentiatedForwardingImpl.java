@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 import org.opendaylight.controller.clustering.services.CacheConfigException;
 import org.opendaylight.controller.clustering.services.CacheExistException;
@@ -20,11 +19,14 @@ import org.opendaylight.controller.forwardingrulesmanager.IForwardingRulesManage
 import org.opendaylight.controller.hosttracker.IfIptoHost;
 import org.opendaylight.controller.hosttracker.IfNewHostNotify;
 import org.opendaylight.controller.hosttracker.hostAware.HostNodeConnector;
+import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.controller.md.sal.binding.api.ReadOnlyTransaction;
+import org.opendaylight.controller.md.sal.binding.api.ReadWriteTransaction;
 import org.opendaylight.controller.md.sal.common.api.TransactionStatus;
-import org.opendaylight.controller.md.sal.common.api.data.DataModification;
+import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
+import org.opendaylight.controller.md.sal.common.api.data.OptimisticLockFailedException;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.IKShortestRoutes;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.YKShortestPaths;
-import org.opendaylight.controller.sal.binding.api.data.DataBrokerService;
 import org.opendaylight.controller.sal.compatibility.InventoryMapping;
 import org.opendaylight.controller.sal.core.Edge;
 import org.opendaylight.controller.sal.core.Path;
@@ -36,6 +38,7 @@ import org.opendaylight.controller.sal.packet.PacketResult;
 import org.opendaylight.controller.sal.packet.RawPacket;
 import org.opendaylight.controller.sal.routing.IListenRoutingUpdates;
 import org.opendaylight.controller.sal.routing.IRouting;
+import org.opendaylight.controller.sal.utils.HexEncode;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
 import org.opendaylight.controller.samples.differentiatedforwarding.OpenFlowUtils;
@@ -44,7 +47,6 @@ import org.opendaylight.controller.samples.simpleforwarding.HostNodePair;
 import org.opendaylight.controller.switchmanager.IInventoryListener;
 import org.opendaylight.controller.switchmanager.ISwitchManager;
 import org.opendaylight.controller.topologymanager.ITopologyManager;
-import org.opendaylight.ovsdb.neutron.IMDSALConsumer;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.Table;
@@ -57,17 +59,23 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.M
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.Instruction;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.InstructionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.InstructionKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnectorBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
-import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Optional;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
 public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRoutingUpdates, IInventoryListener, IListenDataPacket, IForwarding{
 
@@ -107,13 +115,9 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         log.debug("init()");
         allocateRulesDB();
         //FIME: This is wrong and should be fixed by introducing a new Interface for YKSP
-        Object[] rList = ServiceHelper.getGlobalInstances(IRouting.class, this, null);
-        for (int i = 0; i < rList.length; i++) {
-            if (rList[i] instanceof YKShortestPaths){
-                setRouting((IRouting) rList[i]);
-                break;
-            }
-        }
+//        Object[] rList = ServiceHelper.getInstance(IKShortestRoutes.class, this);
+
+
     }
 
     /**
@@ -269,7 +273,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
         if(write){
             // ADD/UPDATE
-            log.debug("programTunnelForwarding: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
+            log.debug("programEdgeSource: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
             // Instantiate the Builders for the OF Actions and Instructions
             InstructionBuilder ib = new InstructionBuilder();
             InstructionsBuilder isb = new InstructionsBuilder();
@@ -315,14 +319,21 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             return;
         }
 
-        DataBrokerService dataBrokerService = mdsalConsumer.getDataBrokerService();
+//        DataBrokerService dataBrokerService = mdsalConsumer.getDataBrokerService();
 
-        if (dataBrokerService == null) {
-            log.error("writeFlow: ERROR finding reference for DataBrokerService. Please check out the MD-SAL support on the Controller.");
+//        if (dataBrokerService == null) {
+//            log.error("writeFlow: ERROR finding reference for DataBrokerService. Please check out the MD-SAL support on the Controller.");
+//            return;
+//        }
+        DataBroker dataBroker = mdsalConsumer.getDataBroker();
+        if (dataBroker == null) {
+            log.error("writeFlow: ERROR finding reference for DataBroker. Please check out the MD-SAL support on the Controller.");
             return;
         }
-        DataModification<InstanceIdentifier<?>, DataObject> modification = dataBrokerService.beginTransaction();
-        InstanceIdentifier<Flow> path1 = InstanceIdentifier
+
+//        DataModification<InstanceIdentifier<?>, DataObject> modification = dataBrokerService.beginTransaction();
+        ReadWriteTransaction readWriteTransaction = dataBroker.newReadWriteTransaction();
+        InstanceIdentifier<Flow> flowPath = InstanceIdentifier
                 .builder(Nodes.class)
                 .child(Node.class,
                         nodeBuilder.getKey())
@@ -330,24 +341,83 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                 .child(Table.class, new TableKey(flowBuilder.getTableId()))
                 .child(Flow.class, flowBuilder.getKey()).build();
 
-        InstanceIdentifier<Node> nodeId = InstanceIdentifier
+        InstanceIdentifier<Node> nodePath = InstanceIdentifier
                 .builder(Nodes.class)
                 .child(Node.class,
                         nodeBuilder.getKey()).toInstance();
 
 
-        modification.putConfigurationData(nodeId, nodeBuilder.build());
-        modification.putConfigurationData(path1, flowBuilder.build());
-        Future<RpcResult<TransactionStatus>> commitFuture = modification.commit();
-        try {
-            RpcResult<TransactionStatus> result = commitFuture.get();
-            TransactionStatus status = result.getResult();
-            log.debug("writeFlow: Transaction Status "+status.toString()+" for Flow "+flowBuilder.getFlowName());
-        } catch (InterruptedException e) {
-            log.error(e.getMessage(), e);
-        } catch (ExecutionException e) {
-            log.error(e.getMessage(), e);
-        }
+        log.debug("writeFlow: nodeId {}", nodePath);
+        log.debug("writeFlow: flowPath {}", flowPath);
+
+
+        /*Iterator&lt;PathArgument&gt; pathArg = path.getPathArguments().iterator();  44
+        * InstanceIdentifier current = InstanceIdentifier.builder.build(); 45
+        * while(pathArg.hasNext()) {   46
+        *     current = current.child(pathArg.next);   47
+        *     if(false == tx.read(store,current).get().isPresent()) {  48
+        *          tx.merge(current,defaultValueFor(current)); 49
+        *     }    50
+        * }*/
+//        Iterator<PathArgument> nodePathArgs = nodePath.getPathArguments().iterator();
+//        InstanceIdentifier current = InstanceIdentifier.builder(Nodes.class).build();
+//        Iterator<PathArgument> flowPathArgs = nodePath.getPathArguments().iterator();
+//        InstanceIdentifier flowCurrent = InstanceIdentifier.builder(Nodes.class).build();
+//        try {
+//            while(nodePathArgs.hasNext()) {
+//                current = current.child(nodePathArgs.next().getClass());
+//                    if(readWriteTransaction.read(LogicalDatastoreType.CONFIGURATION, current).get() == null){
+//                        readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, current, null);
+//                    }
+//            }
+//            while(flowPathArgs.hasNext()) {
+//                flowCurrent = flowCurrent.child(flowPathArgs.next().getClass());
+//                    if(readWriteTransaction.read(LogicalDatastoreType.CONFIGURATION, flowCurrent).get() == null){
+//                        readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, flowCurrent, null);
+//                    }
+//            }
+//        } catch (InterruptedException e) {
+//            log.error("writeFlow: {}", e.getMessage(), e);
+//            return;
+//        } catch (ExecutionException e) {
+//            log.error("writeFlow: {}", e.getMessage(), e);
+//            return;
+//        }
+
+        readWriteTransaction.put(LogicalDatastoreType.CONFIGURATION, nodePath, nodeBuilder.build());
+        readWriteTransaction.put(LogicalDatastoreType.CONFIGURATION, flowPath, flowBuilder.build());
+
+        ListenableFuture<RpcResult<TransactionStatus>> commitFuture = readWriteTransaction.commit();
+        Futures.addCallback(commitFuture, new FutureCallback<RpcResult<TransactionStatus>>() {
+
+            @Override
+            public void onSuccess(final RpcResult<TransactionStatus> result) {
+                log.debug("writeFlow: Transaction Status {} for Result {} ", result.getResult(), result);
+            }
+
+            @Override
+            public void onFailure(final Throwable t) {
+                log.error("writeFlow: onFailure", t);
+                if(t instanceof OptimisticLockFailedException) {
+                    // Failed because of concurrent transaction modifying same data
+                    log.error("writeFlow: Failed because of concurrent transaction modifying same data, we should retry", t);
+                }
+            }
+
+        });
+//        modification.putConfigurationData(nodePath, nodeBuilder.build());
+//        modification.putConfigurationData(flowPath, flowBuilder.build());
+//        Future<RpcResult<TransactionStatus>> commitFuture = modification.commit();
+//        try {
+//            RpcResult<TransactionStatus> result = commitFuture.get();
+//            TransactionStatus status = result.getResult();
+//            log.debug("writeFlow: Transaction Status "+status.toString()+" for Flow "+flowBuilder.getFlowName());
+//        } catch (InterruptedException e) {
+//            log.error(e.getMessage(), e);
+//        } catch (ExecutionException e) {
+//            log.error(e.getMessage(), e);
+//        }
+
     }
 
     @Override
@@ -474,25 +544,115 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         return rulesDB;
     }
 
-    private Node constructMDNode(final org.opendaylight.controller.sal.core.Node node) {
-        log.trace("constructMDNode: ADNode: {}", node);
-        final Set<org.opendaylight.controller.sal.core.NodeConnector> connectors = switchManager
-                .getNodeConnectors(node);
-        final ArrayList<NodeConnector> tpList = new ArrayList<NodeConnector>(
-                connectors.size());
-        for (final org.opendaylight.controller.sal.core.NodeConnector connector : connectors) {
-            tpList.add(constructMDNodeConnector(connector));
+    @Override
+    public Node getMdNode(String nodeName) {
+        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeName));
+        NodeId nodeId = new NodeId("openflow:"+dpid.toString());
+        NodeKey nodeKey = new NodeKey(nodeId);
+        InstanceIdentifier<Node> nodeIdentifier = InstanceIdentifier.builder(Nodes.class).
+                                                        child(Node.class,nodeKey).toInstance();
+        log.debug("getMdNode: MDNodeIdentifier {}", nodeIdentifier);
+
+        IMDSALConsumer mdsalConsumer = (IMDSALConsumer) ServiceHelper.getInstance(IMDSALConsumer.class, "default", this);
+        if (mdsalConsumer == null) {
+            log.error("writeFlow: ERROR finding MDSAL Service.");
+            return null;
         }
 
-        Node mdNode =  new NodeBuilder().setKey(InventoryMapping.toNodeKey(node))
-                .setNodeConnector(tpList).build();
-        log.trace("constructMDNode: ADNode: {} MDNode: {}", node, mdNode);
-        return mdNode;
+        DataBroker dataBroker = mdsalConsumer.getDataBroker();
+        if (dataBroker == null) {
+            log.error("writeFlow: ERROR finding reference for DataBroker. Please check out the MD-SAL support on the Controller.");
+            return null;
+        }
+
+        ReadOnlyTransaction readTx = dataBroker.newReadOnlyTransaction();
+        Optional<Node> data;
+        try {
+            data = readTx.read(LogicalDatastoreType.OPERATIONAL, nodeIdentifier).get();
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("getMdNode: {}", e.getMessage(), e);
+            return null;
+        }
+
+        if(data.isPresent()) {
+           // data are present in data store.
+//            log.debug("getMdNode: data {}", data);
+            Node node = data.get();
+            log.debug("getMdNode: Node {}", node.getId());
+            return node;
+        } else {
+            log.error("getMdNode: data is not present for identifier {}", nodeIdentifier);
+            return null;
+        }
+
+    }
+
+//    public NodeConnector getMdNodeConnector(String nodeName, String portId) {
+//        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeName));
+//        NodeId nodeId = new NodeId("openflow:"+dpid.toString());
+//        NodeKey nodeKey = new NodeKey(nodeId);
+//        InstanceIdentifier<Node> nodeIdentifier = InstanceIdentifier.builder(Nodes.class).
+//                                                        child(Node.class,nodeKey).toInstance();
+//        Long portIdLong = Long.valueOf(portId);
+//        NodeConnectorId ncid = new NodeConnectorId("openflow:" + dpid + ":" + portIdLong.toString());
+//        InstanceIdentifier<NodeConnector> ncIdentifier = InstanceIdentifier.builder(container)
+//        log.debug("getMdNode: MDNodeIdentifier {}", nodeIdentifier);
+//
+//        IMDSALConsumer mdsalConsumer = (IMDSALConsumer) ServiceHelper.getInstance(IMDSALConsumer.class, "default", this);
+//        if (mdsalConsumer == null) {
+//            log.error("writeFlow: ERROR finding MDSAL Service.");
+//            return null;
+//        }
+//
+//        DataBroker dataBroker = mdsalConsumer.getDataBroker();
+//        if (dataBroker == null) {
+//            log.error("writeFlow: ERROR finding reference for DataBroker. Please check out the MD-SAL support on the Controller.");
+//            return null;
+//        }
+//
+//        ReadOnlyTransaction readTx = dataBroker.newReadOnlyTransaction();
+//        Optional<Node> data;
+//        try {
+//            data = readTx.read(LogicalDatastoreType.OPERATIONAL, nodeIdentifier).get();
+//        } catch (InterruptedException | ExecutionException e) {
+//            log.error("getMdNode: {}", e.getMessage(), e);
+//            return null;
+//        }
+//
+//        if(data.isPresent()) {
+//           // data are present in data store.
+////            log.debug("getMdNode: data {}", data);
+//            Node node = data.get();
+//            log.debug("getMdNode: Node {}", node.getId());
+//            return node;
+//        } else {
+//            log.error("getMdNode: data is not present for identifier {}", nodeIdentifier);
+//            return null;
+//        }
+//
+//    }
+    private Node constructMDNode(final org.opendaylight.controller.sal.core.Node node) {
+//        log.trace("constructMDNode: ADNode: {}", node);
+//        final Set<org.opendaylight.controller.sal.core.NodeConnector> connectors = switchManager
+//                .getNodeConnectors(node);
+//        final ArrayList<NodeConnector> tpList = new ArrayList<NodeConnector>(
+//                connectors.size());
+//        for (final org.opendaylight.controller.sal.core.NodeConnector connector : connectors) {
+//            tpList.add(constructMDNodeConnector(connector));
+//        }
+//
+//        Node mdNode =  new NodeBuilder().setKey(InventoryMapping.toNodeKey(node))
+//                .setNodeConnector(tpList).build();
+//        log.trace("constructMDNode: ADNode: {} MDNode: {}", node, mdNode);
+
+        return getMdNode(node.getNodeIDString());
     }
 
     private static NodeConnector constructMDNodeConnector(final org.opendaylight.controller.sal.core.NodeConnector connector) {
         return new NodeConnectorBuilder().setKey(
                 InventoryMapping.toNodeConnectorKey(connector)).build();
     }
+
+
 
 }

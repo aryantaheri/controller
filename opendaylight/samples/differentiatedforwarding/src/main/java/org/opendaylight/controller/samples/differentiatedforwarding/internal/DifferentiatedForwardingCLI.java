@@ -10,6 +10,7 @@ import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.osgi.framework.ServiceRegistration;
 
 public class DifferentiatedForwardingCLI {
@@ -25,7 +26,7 @@ public class DifferentiatedForwardingCLI {
     public void start() {
         final Dictionary<String, Object> props = new Hashtable<String, Object>();
         props.put("osgi.command.scope", "odpcontroller");
-        props.put("osgi.command.function", new String[] { "programTunnel" });
+        props.put("osgi.command.function", new String[] { "programTunnel", "getMdNode" });
         this.sr = ServiceHelper.registerGlobalServiceWReg(DifferentiatedForwardingCLI.class, this, props);
     }
 
@@ -59,6 +60,20 @@ public class DifferentiatedForwardingCLI {
         System.out.println("Chosen Tunnel:" + tunnel);
         forwarding.programTunnelForwarding(tunnel, classNum, true);
 
+
+    }
+
+    public void getMdNode(
+            @Descriptor("Container on the context of which the routing service need to be looked up") String container,
+            @Descriptor("Node name") String nodeName){
+
+        IForwarding forwarding = (IForwarding) ServiceHelper.getInstance(IForwarding.class, container, this);
+        if(forwarding == null){
+            System.err.println("DifferentiatedForwardingCLI - programTunnel: IForwarding is not available");
+            return;
+        }
+        Node node = forwarding.getMdNode(nodeName);
+        System.out.println("Node: "+ node);
     }
 //    @Descriptor("Retrieves K shortest routes between two Nodes in the discovered Topology DB")
 //    public void getkShortestRoutes(
