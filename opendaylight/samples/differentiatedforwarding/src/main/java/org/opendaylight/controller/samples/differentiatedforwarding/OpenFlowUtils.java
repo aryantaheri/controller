@@ -29,8 +29,31 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ *
+ * These are mainly borrowed from OVSDB Plugin project.
+ *
+ */
 public class OpenFlowUtils {
     private static final Logger logger = LoggerFactory.getLogger(OpenFlowUtils.class);
+
+    /**
+     * Create EtherType Match
+     *
+     * @param matchBuilder  Map matchBuilder MatchBuilder Object without a match
+     * @param etherType     Long EtherType
+     * @return matchBuilder Map MatchBuilder Object with a match
+     */
+    public static MatchBuilder createEtherTypeMatch(MatchBuilder matchBuilder, EtherType etherType) {
+
+        EthernetMatchBuilder ethernetMatch = new EthernetMatchBuilder();
+        EthernetTypeBuilder ethTypeBuilder = new EthernetTypeBuilder();
+        ethTypeBuilder.setType(new EtherType(etherType));
+        ethernetMatch.setEthernetType(ethTypeBuilder.build());
+        matchBuilder.setEthernetMatch(ethernetMatch.build());
+
+        return matchBuilder;
+    }
 
     /**
      * Create Ingress Port Match dpidLong, inPort
@@ -181,6 +204,39 @@ public class OpenFlowUtils {
 
         OutputActionBuilder output = new OutputActionBuilder();
         Uri value = new Uri("NORMAL");
+        output.setOutputNodeConnector(value);
+        ab.setAction(new OutputActionCaseBuilder().setOutputAction(output.build()).build());
+        ab.setOrder(0);
+        ab.setKey(new ActionKey(0));
+        actionList.add(ab.build());
+
+        // Create an Apply Action
+        ApplyActionsBuilder aab = new ApplyActionsBuilder();
+        aab.setAction(actionList);
+
+        // Wrap our Apply Action in an Instruction
+        ib.setInstruction(new ApplyActionsCaseBuilder().setApplyActions(aab.build()).build());
+
+        return ib;
+    }
+
+    /**
+     * Create Send to Controller Reserved Port Instruction (packet_in)
+     * It's important to set the output length to maximum, so the packet will
+     * be sent completely.
+     * @param ib Map InstructionBuilder without any instructions
+     * @return ib Map InstructionBuilder with instructions
+     *
+     */
+
+    public static InstructionBuilder createSendToControllerInstructions(InstructionBuilder ib) {
+
+        List<Action> actionList = new ArrayList<Action>();
+        ActionBuilder ab = new ActionBuilder();
+
+        OutputActionBuilder output = new OutputActionBuilder();
+        output.setMaxLength(0xffff);
+        Uri value = new Uri("CONTROLLER");
         output.setOutputNodeConnector(value);
         ab.setAction(new OutputActionCaseBuilder().setOutputAction(output.build()).build());
         ab.setOrder(0);

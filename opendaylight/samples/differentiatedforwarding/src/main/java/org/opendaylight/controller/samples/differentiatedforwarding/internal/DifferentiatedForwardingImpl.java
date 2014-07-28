@@ -67,6 +67,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.No
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.EtherType;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.slf4j.Logger;
@@ -110,6 +111,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      * OpenFlow Priorities
      */
     private static final int PRIORITY_NORMAL = 0;
+    private static final int PRIORITY_LLDP = 1;
     private static final int PRIORITY_TUNNEL_SRC_IN = 1001;
     private static final int PRIORITY_TUNNEL_DST_OUT = 1001;
     private static final int PRIORITY_TUNNEL_TRANSIT = 1000;
@@ -465,42 +467,6 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         log.trace("writeFlow: nodePath {}", nodePath);
         log.trace("writeFlow: flowPath {}", flowPath);
 
-
-
-//        Iterator<PathArgument> nodePathArgs = nodePath.getPathArguments().iterator();
-//        InstanceIdentifier nodeCurrent = InstanceIdentifier.builder(Nodes.class).toInstance();
-//        Iterator<PathArgument> flowPathArgs = flowPath.getPathArguments().iterator();
-//        InstanceIdentifier flowCurrent = InstanceIdentifier.builder(Nodes.class).build();
-//        try {
-//            while(nodePathArgs.hasNext()) {
-//                nodeCurrent = nodeCurrent.child(nodePathArgs.next().getClass());
-//                log.trace("writeFlow: fixing node parents current: {}", nodeCurrent);
-//                    if(readWriteTransaction.read(LogicalDatastoreType.CONFIGURATION, nodeCurrent).get() == null){
-//                        log.trace("writeFlow: current: {} is null. merging", nodeCurrent);
-//                        readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, nodeCurrent, null);
-//                        log.trace("writeFlow: current: {} is null. merged", nodeCurrent);
-//                    }
-//            }
-//            while(flowPathArgs.hasNext()) {
-//                flowCurrent = flowCurrent.child(flowPathArgs.next().getClass());
-//                log.trace("writeFlow: fixing flow parents current: {}", flowCurrent);
-//                if(readWriteTransaction.read(LogicalDatastoreType.CONFIGURATION, flowCurrent).get() == null){
-//                    log.trace("writeFlow: flowcurrent: {} is null. merging", flowCurrent);
-//                    readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, flowCurrent, null);
-//                    log.trace("writeFlow: flowcurrent: {} is null. merged", flowCurrent);
-//                }
-//            }
-//        } catch (InterruptedException e) {
-//            log.error("writeFlow: {}", e.getMessage(), e);
-//            return;
-//        } catch (ExecutionException e) {
-//            log.error("writeFlow: {}", e.getMessage(), e);
-//            return;
-//        }
-
-
-//        log.trace("writeFlow: nodeBuilder {}", nodeBuilder.build());
-//        log.trace("writeFlow: flowBuilder {}", flowBuilder.build());
         readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, nodePath, nodeBuilder.build());
         readWriteTransaction.put(LogicalDatastoreType.CONFIGURATION, flowPath, flowBuilder.build());
 
@@ -522,58 +488,9 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             }
 
         });
-//        modification.putConfigurationData(nodePath, nodeBuilder.build());
-//        modification.putConfigurationData(flowPath, flowBuilder.build());
-//        Future<RpcResult<TransactionStatus>> commitFuture = modification.commit();
-//        try {
-//            RpcResult<TransactionStatus> result = commitFuture.get();
-//            TransactionStatus status = result.getResult();
-//            log.debug("writeFlow: Transaction Status "+status.toString()+" for Flow "+flowBuilder.getFlowName());
-//        } catch (InterruptedException e) {
-//            log.error(e.getMessage(), e);
-//        } catch (ExecutionException e) {
-//            log.error(e.getMessage(), e);
-//        }
-
     }
 
-//    private final void ensureParentsByMerge(
-//            final LogicalDatastoreType store,
-//            final org.opendaylight.yangtools.yang.data.api.InstanceIdentifier normalizedPath,
-//            final InstanceIdentifier<?> path,
-//            ReadWriteTransaction readWriteTransaction) {
-//        List<org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument> currentArguments = new ArrayList<>();
-//        DataNormalizationOperation<?> currentOp = getCodec().getDataNormalizer().getRootOperation();
-//        Iterator<org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument> iterator = normalizedPath.getPathArguments().iterator();
-//        while (iterator.hasNext()) {
-//            org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument currentArg = iterator.next();
-//            try {
-//                currentOp = currentOp.getChild(currentArg);
-//            } catch (DataNormalizationException e) {
-//                throw new IllegalArgumentException(String.format(
-//                        "Invalid child encountered in path %s", path), e);
-//            }
-//            currentArguments.add(currentArg);
-//            org.opendaylight.yangtools.yang.data.api.InstanceIdentifier currentPath = org.opendaylight.yangtools.yang.data.api.InstanceIdentifier
-//                    .create(currentArguments);
-//
-//            final Optional<NormalizedNode<?, ?>> d;
-//            try {
-//                d = getDelegate().read(store, currentPath).get();
-//            } catch (InterruptedException | ExecutionException e) {
-//                log.error(
-//                        "Failed to read pre-existing data from store {} path {}",
-//                        store, currentPath, e);
-//                throw new IllegalStateException(
-//                        "Failed to read pre-existing data", e);
-//            }
-//
-//            if (!d.isPresent() && iterator.hasNext()) {
-//                getDelegate().merge(store, currentPath,
-//                        currentOp.createDefault(currentArg));
-//            }
-//        }
-//    }
+
 
     /*
     * Create a NORMAL Table Miss Flow Rule
@@ -621,6 +538,59 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         flowBuilder.setIdleTimeout(0);
         writeFlow(flowBuilder, nodeBuilder);
     }
+
+    /*
+    * Create an LLDP Flow Rule to encapsulate into
+    * a packet_in that is sent to the controller
+    * for topology handling.
+    * Match: Ethertype 0x88CCL
+    * Action: Punt to Controller in a Packet_In msg
+    * Borrowed from OVSDB.OF13Provider
+    */
+
+    private void writeLLDPRule(Node node) {
+        log.debug("writeLLDPRule: {}", node);
+        EtherType etherType = new EtherType(0x88CCL);
+
+        MatchBuilder matchBuilder = new MatchBuilder();
+        NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(node, TABLE_0_DEFAULT_INGRESS);
+        FlowBuilder flowBuilder = new FlowBuilder();
+
+        // Create Match(es) and Set them in the FlowBuilder Object
+        flowBuilder.setMatch(OpenFlowUtils.createEtherTypeMatch(matchBuilder, etherType).build());
+
+        // Create the OF Actions and Instructions
+        InstructionBuilder ib = new InstructionBuilder();
+        InstructionsBuilder isb = new InstructionsBuilder();
+
+        // Instructions List Stores Individual Instructions
+        List<Instruction> instructions = new ArrayList<Instruction>();
+
+        // Call the InstructionBuilder Methods Containing Actions
+        OpenFlowUtils.createSendToControllerInstructions(ib);
+        ib.setOrder(0);
+        ib.setKey(new InstructionKey(0));
+        instructions.add(ib.build());
+
+        // Add InstructionBuilder to the Instruction(s)Builder List
+        isb.setInstruction(instructions);
+
+        // Add InstructionsBuilder to FlowBuilder
+        flowBuilder.setInstructions(isb.build());
+
+        String flowId = "LLDP";
+        flowBuilder.setId(new FlowId(flowId));
+        FlowKey key = new FlowKey(new FlowId(flowId));
+        flowBuilder.setBarrier(true);
+        flowBuilder.setTableId(TABLE_0_DEFAULT_INGRESS);
+        flowBuilder.setPriority(PRIORITY_LLDP);
+        flowBuilder.setKey(key);
+        flowBuilder.setFlowName(flowId);
+        flowBuilder.setHardTimeout(0);
+        flowBuilder.setIdleTimeout(0);
+        writeFlow(flowBuilder, nodeBuilder);
+    }
+
     @Override
     public PacketResult receiveDataPacket(RawPacket inPkt) {
         // TODO Auto-generated method stub
