@@ -1,12 +1,10 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.internal;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
@@ -27,7 +25,6 @@ import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.controller.md.sal.common.api.data.OptimisticLockFailedException;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.IKShortestRoutes;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.YKShortestPaths;
-import org.opendaylight.controller.sal.compatibility.InventoryMapping;
 import org.opendaylight.controller.sal.core.Edge;
 import org.opendaylight.controller.sal.core.Path;
 import org.opendaylight.controller.sal.core.Property;
@@ -47,9 +44,12 @@ import org.opendaylight.controller.samples.simpleforwarding.HostNodePair;
 import org.opendaylight.controller.switchmanager.IInventoryListener;
 import org.opendaylight.controller.switchmanager.ISwitchManager;
 import org.opendaylight.controller.topologymanager.ITopologyManager;
+import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.PortNumber;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNodeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.Table;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.Flow;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.FlowBuilder;
@@ -105,6 +105,15 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      */
 //    private static final short TABLE_TUNNEL_QOS = 100;
     private static final short TABLE_0_DEFAULT_INGRESS = 0;
+
+    /**
+     * OpenFlow Priorities
+     */
+    private static final int PRIORITY_NORMAL = 0;
+    private static final int PRIORITY_TUNNEL_SRC_IN = 1001;
+    private static final int PRIORITY_TUNNEL_DST_OUT = 1001;
+    private static final int PRIORITY_TUNNEL_TRANSIT = 1000;
+
 
     /**
      * Function called by the dependency manager when all the required
@@ -182,6 +191,10 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         org.opendaylight.controller.sal.core.Node dstNode = tunnel.getDstNodeConnector().getNode();
         List<Path> paths = shortestRoutes.getKShortestRoutes(srcNode, dstNode, classNum);
         log.trace("programTunnelForwarding: tunnel {} paths {}", tunnel, paths);
+        if (paths == null || paths.size() == 0){
+            log.error("programTunnelForwarding: No path available between {} and {}. Returning", srcNode, dstNode);
+            return;
+        }
         Path path;
         if (paths.size() >= classNum){
             path = paths.get(classNum - 1);
@@ -199,6 +212,8 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
          * lastInPort-srcNode-outPort ----> inPort-dstNode
          */
         org.opendaylight.controller.sal.core.NodeConnector lastInPort = null;
+        Node lastInPortMDNode = null;
+        NodeConnector lastInPortMDNC = null;
         for (Edge edge : edges) {
             org.opendaylight.controller.sal.core.NodeConnector outPort = edge.getTailNodeConnector();
             org.opendaylight.controller.sal.core.NodeConnector inPort = edge.getHeadNodeConnector();
@@ -211,45 +226,151 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
             if (lastInPort == null){
                 // Tunnel src
-                programEdgeSource(tunnel, null, null, outPortMDNode, outPortMDNC, write);
-
+                programTunnelSource(tunnel, outPortMDNode, outPortMDNC, write);
+                programEdgeTail(tunnel, null, null, outPortMDNode, outPortMDNC, write);
+                writeNormalRule(outPortMDNode);
             } else {
                 // middle/end node or err
-                Node lastInPortMDNode = constructMDNode(lastInPort.getNode());
-                NodeConnector lastInPortMDNC = constructMDNodeConnector(lastInPort);
+                lastInPortMDNode = constructMDNode(lastInPort.getNode());
+                lastInPortMDNC = constructMDNodeConnector(lastInPort);
 
-                programEdgeSource(tunnel, lastInPortMDNode, lastInPortMDNC, outPortMDNode, outPortMDNC, write);
+                programEdgeTail(tunnel, lastInPortMDNode, lastInPortMDNC, outPortMDNode, outPortMDNC, write);
             }
 
             lastInPort = inPort;
-
+//            lastInPortMDNC = inPortMDNC;
+//            lastInPortMDNode = inPortMDNode;
         }
 
+        // Here lastInPort is the nodeConnector representing the TEP.
+        // 1) Use a NORMAL rule to find the host, and forward
+        // 2) Be more strict, discover IP-MAC resolution, and program flow accordingly
+        Node tepNode = constructMDNode(lastInPort.getNode());
+        writeNormalRule(tepNode);
     }
 
-    private void programEdgeSource(final Tunnel tunnel, final Node lastInPortMDNode, final NodeConnector lastInPortMDNC,
-                                        final Node outPortMDNode, final NodeConnector outPortMDNC, boolean write) {
+    /**
+     * 1) Forward designated ingress traffic to the tunnel interface
+     * 2) Forward egress tunnel traffic to outPort
+     * @param tunnel
+     * @param outPortMDNode
+     * @param outPortMDNC
+     * @param write
+     */
+    private void programTunnelSource(Tunnel tunnel, Node outPortMDNode, NodeConnector outPortMDNC, boolean write) {
+        log.debug("programTunnelSource: tunnel {} outPortMDNode {} outPortMDNC {} write {}", tunnel, outPortMDNode.getId(), outPortMDNC.getId(), write);
+        handleIngressTrafficToTunnelSource(tunnel, outPortMDNode, outPortMDNC, write);
+        // NOTE: in OVS you can not enforce tunnel egress port.
+    }
 
-        log.debug("programEdgeSource: tunnel {}, lastInPortMDNode {}, lastInPortMDNC {}, outPortMDNode {}, outPortMDNC {}, write {}",
-                tunnel, lastInPortMDNode, lastInPortMDNC, outPortMDNode, outPortMDNC, write);
-        if (lastInPortMDNode != null && !lastInPortMDNode.equals(outPortMDNode)){
-            log.error("programEdgeSource: lastInPortNode {} is not equal to outPort {}. Inconsistency found, returning", lastInPortMDNode, outPortMDNode);
-            return;
+    /**
+     * 1) Select designated ingress traffic to node
+     * 1.1) Traffic from hosts
+     * 1.2) Traffic from other nodes (e.g. patch ports)
+     * 1.3) Traffic from 1.1 and 1.2
+     * 1.4) Other policies
+     * Chosen designated ports: !outPort && !tunnelSrcPort && !LOCAL
+     * @param tunnel
+     * @param write
+     */
+    private void handleIngressTrafficToTunnelSource(Tunnel tunnel, Node outPortMDNode, NodeConnector outPortMDNC, boolean write) {
+        log.debug("handleIngressTrafficToTunnelSource: tunnel {} outPortMDNode {} outPortMDNC {} write {}", tunnel, outPortMDNode.getId(), outPortMDNC.getId(), write);
+        NodeConnector tunnelSrcNodeConnector = constructMDNodeConnector(tunnel.getSrcNodeConnector());
+        Node srcNode = constructMDNode(tunnel.getSrcNodeConnector().getNode());
+
+        List<NodeConnector> ingressPorts = new ArrayList<>();
+        List<NodeConnector> connectors = srcNode.getNodeConnector();
+        for (NodeConnector nodeConnector : connectors) {
+            if(!nodeConnector.getId().getValue().equalsIgnoreCase(outPortMDNC.getId().getValue()) &&
+                    !nodeConnector.getId().getValue().equalsIgnoreCase(tunnelSrcNodeConnector.getId().getValue()) &&
+                    !nodeConnector.getId().getValue().contains(":LOCAL")){
+                ingressPorts.add(nodeConnector);
+            }
         }
+        log.trace("handleIngressTrafficToTunnelSource: designated ingress ports: {}", ingressPorts);
+
         MatchBuilder matchBuilder = new MatchBuilder();
         FlowBuilder flowBuilder = new FlowBuilder();
-        NodeBuilder nodeBuilder = new NodeBuilder(outPortMDNode);
-        nodeBuilder.setKey(new NodeKey(nodeBuilder.getId()));
+        NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(outPortMDNode, TABLE_0_DEFAULT_INGRESS);
+
+        for (NodeConnector ingressNodeConnector : ingressPorts) {
+            flowBuilder.setMatch(OpenFlowUtils.createInPortMatch(matchBuilder, srcNode, ingressNodeConnector).build());
+        }
+        String flowName = "TE_TUNNEL_IN_SRC" + tunnel.getTunnelKey() + "_"
+                + outPortMDNode.getId().getValue() + "_"
+                + tunnel.getSrcAddress().getHostAddress() + "_"
+                + tunnel.getDstAddress().getHostAddress();
+
+        flowBuilder.setId(new FlowId(flowName));
+        FlowKey flowKey = new FlowKey(flowBuilder.getId());
+        flowBuilder.setStrict(true);
+        flowBuilder.setBarrier(false);
+        flowBuilder.setTableId(TABLE_0_DEFAULT_INGRESS);
+        flowBuilder.setKey(flowKey);
+        flowBuilder.setFlowName(flowName);
+        flowBuilder.setHardTimeout(0);
+        flowBuilder.setIdleTimeout(0);
+        flowBuilder.setPriority(PRIORITY_TUNNEL_SRC_IN);
+
+        if(write){
+            log.debug("programEdgeTail: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
+            // Instantiate the Builders for the OF Actions and Instructions
+            InstructionBuilder ib = new InstructionBuilder();
+            InstructionsBuilder isb = new InstructionsBuilder();
+
+            // Instructions List Stores Individual Instructions
+            List<Instruction> instructions = new ArrayList<Instruction>();
+
+            // Set the Output Port/Iface to the tunnel interface
+            ib = OpenFlowUtils.createOutputPortInstructions(ib, outPortMDNode, tunnelSrcNodeConnector);
+            // FIXME: Ultimately we should specify the tunnel key, src, dst as well.
+            ib.setOrder(0);
+            ib.setKey(new InstructionKey(0));
+            instructions.add(ib.build());
+
+            // Add InstructionBuilder to the Instruction(s)Builder List
+            isb.setInstruction(instructions);
+
+            // Add InstructionsBuilder to FlowBuilder
+            flowBuilder.setInstructions(isb.build());
+
+            writeFlow(flowBuilder, nodeBuilder);
+        } else {
+            removeFlow(flowBuilder, nodeBuilder);
+        }
+    }
+
+    private void programEdgeTail(final Tunnel tunnel, final Node lastInPortMDNode, final NodeConnector lastInPortMDNC,
+                                        final Node outPortMDNode, final NodeConnector outPortMDNC, boolean write) {
+
+        if (lastInPortMDNode != null && !lastInPortMDNode.equals(outPortMDNode)){
+            log.error("programEdgeTail: lastInPortNode {} is not equal to outPort {}. Inconsistency found, returning", lastInPortMDNode, outPortMDNode);
+            return;
+        }
+
+        MatchBuilder matchBuilder = new MatchBuilder();
+        FlowBuilder flowBuilder = new FlowBuilder();
+        NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(outPortMDNode, TABLE_0_DEFAULT_INGRESS);
 
         if (lastInPortMDNode != null && lastInPortMDNC != null){
-            log.trace("programEdgeSource: middle/last node/edge is programming");
+            log.debug("programEdgeTail: tunnel {}, lastInPortMDNode {}, lastInPortMDNC {}, outPortMDNode {}, outPortMDNC {}, write {}",
+                    tunnel, lastInPortMDNode.getId(), lastInPortMDNC, outPortMDNode.getId(), outPortMDNC, write);
+            log.trace("programEdgeTail: middle/last node/edge is programming");
             // Match on lastInPort
             flowBuilder.setMatch(OpenFlowUtils.createInPortMatch(matchBuilder, lastInPortMDNode, lastInPortMDNC).build());
         } else {
-            log.trace("programEdgeSource: tunnel source node/first edge is programming");
+            log.debug("programEdgeTail: tunnel {}, lastInPortMDNode {}, lastInPortMDNC {}, outPortMDNode {}, outPortMDNC {}, write {}",
+                    tunnel, lastInPortMDNode, lastInPortMDNC, outPortMDNode.getId(), outPortMDNC, write);
+
+            log.trace("programEdgeTail: tunnel source node/first edge is programming");
         }
-        // Match on Tunnel ID
-        flowBuilder.setMatch(OpenFlowUtils.createTunnelIDMatch(matchBuilder, new BigInteger(tunnel.getTunnelKey())).build());
+
+
+        // FIXME: Match on Tunnel ID. This is broken!
+//        flowBuilder.setMatch(OpenFlowUtils.createTunnelIDMatch(matchBuilder, new BigInteger(tunnel.getTunnelKey())).build());
+        // FIXME: Alternatively use destination tunnel port to cover the tunnel ID. tp_dst=tun_id,
+        // this should be taken care of while creating tunnels
+        flowBuilder.setMatch(OpenFlowUtils.createDstPortUdpMatch(matchBuilder, new PortNumber(Integer.parseInt(tunnel.getTunnelKey()))).build());
         // Match on Destination IP
         flowBuilder.setMatch(OpenFlowUtils.createDstL3IPv4Match(matchBuilder, tunnel.getDstAddress()).build());
         // Match on Source IP
@@ -257,7 +378,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
 
         String flowName = "QoS_Tunnel_" + tunnel.getTunnelKey() + "_"
-                                        + outPortMDNode.getId() + "_"
+                                        + outPortMDNode.getId().getValue() + "_"
                                         + tunnel.getSrcAddress().getHostAddress() + "_"
                                         + tunnel.getDstAddress().getHostAddress();
 
@@ -270,10 +391,11 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         flowBuilder.setFlowName(flowName);
         flowBuilder.setHardTimeout(0);
         flowBuilder.setIdleTimeout(0);
+        flowBuilder.setPriority(PRIORITY_TUNNEL_TRANSIT);
 
         if(write){
             // ADD/UPDATE
-            log.debug("programEdgeSource: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
+            log.debug("programEdgeTail: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
             // Instantiate the Builders for the OF Actions and Instructions
             InstructionBuilder ib = new InstructionBuilder();
             InstructionsBuilder isb = new InstructionsBuilder();
@@ -297,7 +419,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
         } else {
             // DELETE
-            log.debug("programTunnelForwarding: Delete flow {} from node {}", flowBuilder, nodeBuilder);
+            log.debug("programEdgeTail: Delete flow {} from node {}", flowBuilder, nodeBuilder);
             removeFlow(flowBuilder, nodeBuilder);
         }
     }
@@ -319,19 +441,12 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             return;
         }
 
-//        DataBrokerService dataBrokerService = mdsalConsumer.getDataBrokerService();
-
-//        if (dataBrokerService == null) {
-//            log.error("writeFlow: ERROR finding reference for DataBrokerService. Please check out the MD-SAL support on the Controller.");
-//            return;
-//        }
         DataBroker dataBroker = mdsalConsumer.getDataBroker();
         if (dataBroker == null) {
             log.error("writeFlow: ERROR finding reference for DataBroker. Please check out the MD-SAL support on the Controller.");
             return;
         }
 
-//        DataModification<InstanceIdentifier<?>, DataObject> modification = dataBrokerService.beginTransaction();
         ReadWriteTransaction readWriteTransaction = dataBroker.newReadWriteTransaction();
         InstanceIdentifier<Flow> flowPath = InstanceIdentifier
                 .builder(Nodes.class)
@@ -347,34 +462,33 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                         nodeBuilder.getKey()).toInstance();
 
 
-        log.debug("writeFlow: nodeId {}", nodePath);
-        log.debug("writeFlow: flowPath {}", flowPath);
+        log.trace("writeFlow: nodePath {}", nodePath);
+        log.trace("writeFlow: flowPath {}", flowPath);
 
 
-        /*Iterator&lt;PathArgument&gt; pathArg = path.getPathArguments().iterator();  44
-        * InstanceIdentifier current = InstanceIdentifier.builder.build(); 45
-        * while(pathArg.hasNext()) {   46
-        *     current = current.child(pathArg.next);   47
-        *     if(false == tx.read(store,current).get().isPresent()) {  48
-        *          tx.merge(current,defaultValueFor(current)); 49
-        *     }    50
-        * }*/
+
 //        Iterator<PathArgument> nodePathArgs = nodePath.getPathArguments().iterator();
-//        InstanceIdentifier current = InstanceIdentifier.builder(Nodes.class).build();
-//        Iterator<PathArgument> flowPathArgs = nodePath.getPathArguments().iterator();
+//        InstanceIdentifier nodeCurrent = InstanceIdentifier.builder(Nodes.class).toInstance();
+//        Iterator<PathArgument> flowPathArgs = flowPath.getPathArguments().iterator();
 //        InstanceIdentifier flowCurrent = InstanceIdentifier.builder(Nodes.class).build();
 //        try {
 //            while(nodePathArgs.hasNext()) {
-//                current = current.child(nodePathArgs.next().getClass());
-//                    if(readWriteTransaction.read(LogicalDatastoreType.CONFIGURATION, current).get() == null){
-//                        readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, current, null);
+//                nodeCurrent = nodeCurrent.child(nodePathArgs.next().getClass());
+//                log.trace("writeFlow: fixing node parents current: {}", nodeCurrent);
+//                    if(readWriteTransaction.read(LogicalDatastoreType.CONFIGURATION, nodeCurrent).get() == null){
+//                        log.trace("writeFlow: current: {} is null. merging", nodeCurrent);
+//                        readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, nodeCurrent, null);
+//                        log.trace("writeFlow: current: {} is null. merged", nodeCurrent);
 //                    }
 //            }
 //            while(flowPathArgs.hasNext()) {
 //                flowCurrent = flowCurrent.child(flowPathArgs.next().getClass());
-//                    if(readWriteTransaction.read(LogicalDatastoreType.CONFIGURATION, flowCurrent).get() == null){
-//                        readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, flowCurrent, null);
-//                    }
+//                log.trace("writeFlow: fixing flow parents current: {}", flowCurrent);
+//                if(readWriteTransaction.read(LogicalDatastoreType.CONFIGURATION, flowCurrent).get() == null){
+//                    log.trace("writeFlow: flowcurrent: {} is null. merging", flowCurrent);
+//                    readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, flowCurrent, null);
+//                    log.trace("writeFlow: flowcurrent: {} is null. merged", flowCurrent);
+//                }
 //            }
 //        } catch (InterruptedException e) {
 //            log.error("writeFlow: {}", e.getMessage(), e);
@@ -384,7 +498,10 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 //            return;
 //        }
 
-        readWriteTransaction.put(LogicalDatastoreType.CONFIGURATION, nodePath, nodeBuilder.build());
+
+//        log.trace("writeFlow: nodeBuilder {}", nodeBuilder.build());
+//        log.trace("writeFlow: flowBuilder {}", flowBuilder.build());
+        readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, nodePath, nodeBuilder.build());
         readWriteTransaction.put(LogicalDatastoreType.CONFIGURATION, flowPath, flowBuilder.build());
 
         ListenableFuture<RpcResult<TransactionStatus>> commitFuture = readWriteTransaction.commit();
@@ -420,6 +537,90 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
     }
 
+//    private final void ensureParentsByMerge(
+//            final LogicalDatastoreType store,
+//            final org.opendaylight.yangtools.yang.data.api.InstanceIdentifier normalizedPath,
+//            final InstanceIdentifier<?> path,
+//            ReadWriteTransaction readWriteTransaction) {
+//        List<org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument> currentArguments = new ArrayList<>();
+//        DataNormalizationOperation<?> currentOp = getCodec().getDataNormalizer().getRootOperation();
+//        Iterator<org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument> iterator = normalizedPath.getPathArguments().iterator();
+//        while (iterator.hasNext()) {
+//            org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument currentArg = iterator.next();
+//            try {
+//                currentOp = currentOp.getChild(currentArg);
+//            } catch (DataNormalizationException e) {
+//                throw new IllegalArgumentException(String.format(
+//                        "Invalid child encountered in path %s", path), e);
+//            }
+//            currentArguments.add(currentArg);
+//            org.opendaylight.yangtools.yang.data.api.InstanceIdentifier currentPath = org.opendaylight.yangtools.yang.data.api.InstanceIdentifier
+//                    .create(currentArguments);
+//
+//            final Optional<NormalizedNode<?, ?>> d;
+//            try {
+//                d = getDelegate().read(store, currentPath).get();
+//            } catch (InterruptedException | ExecutionException e) {
+//                log.error(
+//                        "Failed to read pre-existing data from store {} path {}",
+//                        store, currentPath, e);
+//                throw new IllegalStateException(
+//                        "Failed to read pre-existing data", e);
+//            }
+//
+//            if (!d.isPresent() && iterator.hasNext()) {
+//                getDelegate().merge(store, currentPath,
+//                        currentOp.createDefault(currentArg));
+//            }
+//        }
+//    }
+
+    /*
+    * Create a NORMAL Table Miss Flow Rule
+    * Match: any
+    * Action: forward to NORMAL pipeline
+    * Borrowed from OVSDB.OF13Provider
+    */
+
+    private void writeNormalRule(Node node) {
+
+
+        MatchBuilder matchBuilder = new MatchBuilder();
+        NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(node, TABLE_0_DEFAULT_INGRESS);
+        FlowBuilder flowBuilder = new FlowBuilder();
+
+        // Create the OF Actions and Instructions
+        InstructionBuilder ib = new InstructionBuilder();
+        InstructionsBuilder isb = new InstructionsBuilder();
+
+        // Instructions List Stores Individual Instructions
+        List<Instruction> instructions = new ArrayList<Instruction>();
+
+        // Call the InstructionBuilder Methods Containing Actions
+        OpenFlowUtils.createNormalInstructions(ib);
+        ib.setOrder(0);
+        ib.setKey(new InstructionKey(0));
+        instructions.add(ib.build());
+
+        // Add InstructionBuilder to the Instruction(s)Builder List
+        isb.setInstruction(instructions);
+
+        // Add InstructionsBuilder to FlowBuilder
+        flowBuilder.setInstructions(isb.build());
+
+        String flowId = "NORMAL";
+        flowBuilder.setId(new FlowId(flowId));
+        FlowKey key = new FlowKey(new FlowId(flowId));
+        flowBuilder.setMatch(matchBuilder.build());
+        flowBuilder.setPriority(PRIORITY_NORMAL);
+        flowBuilder.setBarrier(true);
+        flowBuilder.setTableId(TABLE_0_DEFAULT_INGRESS);
+        flowBuilder.setKey(key);
+        flowBuilder.setFlowName(flowId);
+        flowBuilder.setHardTimeout(0);
+        flowBuilder.setIdleTimeout(0);
+        writeFlow(flowBuilder, nodeBuilder);
+    }
     @Override
     public PacketResult receiveDataPacket(RawPacket inPkt) {
         // TODO Auto-generated method stub
@@ -551,7 +752,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         NodeKey nodeKey = new NodeKey(nodeId);
         InstanceIdentifier<Node> nodeIdentifier = InstanceIdentifier.builder(Nodes.class).
                                                         child(Node.class,nodeKey).toInstance();
-        log.debug("getMdNode: MDNodeIdentifier {}", nodeIdentifier);
+        log.trace("getMdNode: MDNodeIdentifier {}", nodeIdentifier);
 
         IMDSALConsumer mdsalConsumer = (IMDSALConsumer) ServiceHelper.getInstance(IMDSALConsumer.class, "default", this);
         if (mdsalConsumer == null) {
@@ -578,7 +779,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
            // data are present in data store.
 //            log.debug("getMdNode: data {}", data);
             Node node = data.get();
-            log.debug("getMdNode: Node {}", node.getId());
+            log.trace("getMdNode: Node {}", node.getId());
             return node;
         } else {
             log.error("getMdNode: data is not present for identifier {}", nodeIdentifier);
@@ -587,50 +788,10 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
     }
 
-//    public NodeConnector getMdNodeConnector(String nodeName, String portId) {
-//        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeName));
-//        NodeId nodeId = new NodeId("openflow:"+dpid.toString());
-//        NodeKey nodeKey = new NodeKey(nodeId);
-//        InstanceIdentifier<Node> nodeIdentifier = InstanceIdentifier.builder(Nodes.class).
-//                                                        child(Node.class,nodeKey).toInstance();
-//        Long portIdLong = Long.valueOf(portId);
-//        NodeConnectorId ncid = new NodeConnectorId("openflow:" + dpid + ":" + portIdLong.toString());
-//        InstanceIdentifier<NodeConnector> ncIdentifier = InstanceIdentifier.builder(container)
-//        log.debug("getMdNode: MDNodeIdentifier {}", nodeIdentifier);
-//
-//        IMDSALConsumer mdsalConsumer = (IMDSALConsumer) ServiceHelper.getInstance(IMDSALConsumer.class, "default", this);
-//        if (mdsalConsumer == null) {
-//            log.error("writeFlow: ERROR finding MDSAL Service.");
-//            return null;
-//        }
-//
-//        DataBroker dataBroker = mdsalConsumer.getDataBroker();
-//        if (dataBroker == null) {
-//            log.error("writeFlow: ERROR finding reference for DataBroker. Please check out the MD-SAL support on the Controller.");
-//            return null;
-//        }
-//
-//        ReadOnlyTransaction readTx = dataBroker.newReadOnlyTransaction();
-//        Optional<Node> data;
-//        try {
-//            data = readTx.read(LogicalDatastoreType.OPERATIONAL, nodeIdentifier).get();
-//        } catch (InterruptedException | ExecutionException e) {
-//            log.error("getMdNode: {}", e.getMessage(), e);
-//            return null;
-//        }
-//
-//        if(data.isPresent()) {
-//           // data are present in data store.
-////            log.debug("getMdNode: data {}", data);
-//            Node node = data.get();
-//            log.debug("getMdNode: Node {}", node.getId());
-//            return node;
-//        } else {
-//            log.error("getMdNode: data is not present for identifier {}", nodeIdentifier);
-//            return null;
-//        }
-//
-//    }
+    public NodeConnector getMdNodeConnector(Node node, String portId) {
+        return null;
+    }
+
     private Node constructMDNode(final org.opendaylight.controller.sal.core.Node node) {
 //        log.trace("constructMDNode: ADNode: {}", node);
 //        final Set<org.opendaylight.controller.sal.core.NodeConnector> connectors = switchManager
@@ -649,10 +810,35 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     }
 
     private static NodeConnector constructMDNodeConnector(final org.opendaylight.controller.sal.core.NodeConnector connector) {
-        return new NodeConnectorBuilder().setKey(
-                InventoryMapping.toNodeConnectorKey(connector)).build();
+        String nodeName = connector.getNode().getNodeIDString();
+        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeName));
+        NodeId nodeId = new NodeId("openflow:"+dpid.toString());
+        NodeKey nodeKey = new NodeKey(nodeId);
+        InstanceIdentifier<Node> nodeIdentifier = InstanceIdentifier.builder(Nodes.class).
+                                                      child(Node.class,nodeKey).toInstance();
+        String portId = connector.getNodeConnectorIDString();
+        NodeConnectorId ncId = new NodeConnectorId(nodeId.getValue() + ":" + portId);
+        NodeConnector nodeConnector = new NodeConnectorBuilder().setId(ncId).build();
+        log.trace("constructMDNodeConnector: ADNC: {}, MDNC: {}", connector, nodeConnector);
+        return nodeConnector;
     }
 
+    private static NodeBuilder getFlowCapableNodeBuilder(Node node, short tableNumber){
+        List<Table> tables = new ArrayList<>();
+        TableBuilder tableBuilder = new TableBuilder();
+        tableBuilder.setKey(new TableKey(tableNumber));
+        tables.add(tableBuilder.build());
+
+        FlowCapableNodeBuilder flowCapableNodeBuilder = new FlowCapableNodeBuilder();
+        flowCapableNodeBuilder.setTable(tables);
+
+        NodeBuilder nodeBuilder = new NodeBuilder(node);
+        nodeBuilder.setKey(new NodeKey(nodeBuilder.getId()));
+        nodeBuilder.addAugmentation(FlowCapableNode.class, flowCapableNodeBuilder.build());
+
+        return nodeBuilder;
+
+    }
 
 
 }
