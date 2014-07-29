@@ -5,6 +5,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
@@ -44,6 +45,13 @@ import org.opendaylight.controller.samples.simpleforwarding.HostNodePair;
 import org.opendaylight.controller.switchmanager.IInventoryListener;
 import org.opendaylight.controller.switchmanager.ISwitchManager;
 import org.opendaylight.controller.topologymanager.ITopologyManager;
+import org.opendaylight.ovsdb.lib.notation.Row;
+import org.opendaylight.ovsdb.lib.notation.UUID;
+import org.opendaylight.ovsdb.plugin.IConnectionServiceInternal;
+import org.opendaylight.ovsdb.plugin.OvsdbConfigService;
+import org.opendaylight.ovsdb.schema.openvswitch.Bridge;
+import org.opendaylight.ovsdb.schema.openvswitch.Interface;
+import org.opendaylight.ovsdb.schema.openvswitch.Port;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.PortNumber;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNodeBuilder;
@@ -112,9 +120,10 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      */
     private static final int PRIORITY_NORMAL = 0;
     private static final int PRIORITY_LLDP = 1;
+    private static final int PRIORITY_TUNNEL_EXTLOCAL = 999;
+    private static final int PRIORITY_TUNNEL_TRANSIT = 1000;
     private static final int PRIORITY_TUNNEL_SRC_IN = 1001;
     private static final int PRIORITY_TUNNEL_DST_OUT = 1001;
-    private static final int PRIORITY_TUNNEL_TRANSIT = 1000;
 
 
     /**
@@ -227,9 +236,10 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             NodeConnector inPortMDNC = constructMDNodeConnector(inPort);
 
             if (lastInPort == null){
-                // Tunnel src
+                // Tunnel source
                 programTunnelSource(tunnel, outPortMDNode, outPortMDNC, write);
-                programEdgeTail(tunnel, null, null, outPortMDNode, outPortMDNC, write);
+                // programEdgeTail(tunnel, null, null, outPortMDNode, outPortMDNC, write);
+                writeLLDPRule(outPortMDNode);
                 writeNormalRule(outPortMDNode);
             } else {
                 // middle/end node or err
@@ -244,11 +254,13 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 //            lastInPortMDNode = inPortMDNode;
         }
 
+        // Tunnel destination
         // Here lastInPort is the nodeConnector representing the TEP.
         // 1) Use a NORMAL rule to find the host, and forward
         // 2) Be more strict, discover IP-MAC resolution, and program flow accordingly
-        Node tepNode = constructMDNode(lastInPort.getNode());
-        writeNormalRule(tepNode);
+        Node tepDstNode = constructMDNode(lastInPort.getNode());
+        writeLLDPRule(tepDstNode);
+        writeNormalRule(tepDstNode);
     }
 
     /**
@@ -263,6 +275,81 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         log.debug("programTunnelSource: tunnel {} outPortMDNode {} outPortMDNC {} write {}", tunnel, outPortMDNode.getId(), outPortMDNC.getId(), write);
         handleIngressTrafficToTunnelSource(tunnel, outPortMDNode, outPortMDNC, write);
         // NOTE: in OVS you can not enforce tunnel egress port.
+        handleExternalInterfaceForwarding(outPortMDNode);
+    }
+
+    /**
+     * TEP Nodes have IP addresses on their default internal interface (e.g. SW s1, Interface s1).
+     * These IPs are used as remote_ip and local_ip. The physical Ethernet is added to the switch for
+     * connectivity.
+     * In mininet case, since Linux bridge doesn't forward LLDP multicasts, we added a set of L2TP
+     * tunnels to provide L2 connectivity. L2TP ports behave as physical Ethernet, and are added to
+     * the switch in mininet.
+     * For now we just need simple forwarding between LOCAL and L2TP port
+     * The packet flow is:
+     * vhost <--> tunnel interface <--> linux IP stack <--> switch internal interface <--> physical ethernet (l2tp)
+     *
+     * When adding the l2tp port to the switch, make sure type=system is present. Since that's the
+     * only discovery mechanism here
+     * ovs-vsctl add-port s1 l2tpeth0 -- set Interface l2tpeth0 type=system
+     *
+     * @param Node
+     */
+    private void handleExternalInterfaceForwarding(Node node) {
+        log.debug("handleExternalInterfaceForwarding: node {}", node);
+        List<NodeConnector> nodeConnectors = node.getNodeConnector();
+
+        Long externalInterfaceOfPort = getExternalInterfaceOfPort(node);
+        NodeConnectorId exInfId = new NodeConnectorId(node.getId().getValue() + ":" + externalInterfaceOfPort);
+        NodeConnector exNodeConnector = new NodeConnectorBuilder().setId(exInfId).build();
+
+        NodeConnectorId localInfId = new NodeConnectorId(node.getId().getValue() + ":" + "LOCAL");
+        NodeConnector localNodeConnector = new NodeConnectorBuilder().setId(localInfId).build();
+
+        String flowNameExtLocal = "TE_TUNNEL_EXT_LOCAL";
+        writeSimpleInOutRule(node, exNodeConnector, localNodeConnector, flowNameExtLocal, PRIORITY_TUNNEL_EXTLOCAL, TABLE_0_DEFAULT_INGRESS, true);
+
+        String flowNameLocalExt = "TE_TUNNEL_LOCAL_EXT";
+        writeSimpleInOutRule(node, localNodeConnector, exNodeConnector, flowNameLocalExt, PRIORITY_TUNNEL_EXTLOCAL, TABLE_0_DEFAULT_INGRESS, true);
+    }
+
+    private void writeSimpleInOutRule(Node node, NodeConnector inPort, NodeConnector outPort, String flowName, int priority, short table, boolean write){
+        MatchBuilder matchBuilder = new MatchBuilder();
+        FlowBuilder flowBuilder = new FlowBuilder();
+        NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(node, table);
+
+        flowBuilder.setMatch(OpenFlowUtils.createInPortMatch(matchBuilder, node, inPort).build());
+
+        flowBuilder.setId(new FlowId(flowName));
+        FlowKey flowKey = new FlowKey(flowBuilder.getId());
+        flowBuilder.setStrict(true);
+        flowBuilder.setBarrier(false);
+        flowBuilder.setTableId(table);
+        flowBuilder.setKey(flowKey);
+        flowBuilder.setFlowName(flowName);
+        flowBuilder.setHardTimeout(0);
+        flowBuilder.setIdleTimeout(0);
+        flowBuilder.setPriority(priority);
+
+        if(write){
+            log.debug("writeSimpleInOutRule: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
+            InstructionBuilder ib = new InstructionBuilder();
+            InstructionsBuilder isb = new InstructionsBuilder();
+            List<Instruction> instructions = new ArrayList<Instruction>();
+            ib = OpenFlowUtils.createOutputPortInstructions(ib, node, outPort);
+            ib.setOrder(0);
+            ib.setKey(new InstructionKey(0));
+            instructions.add(ib.build());
+
+            isb.setInstruction(instructions);
+
+            flowBuilder.setInstructions(isb.build());
+
+            writeFlow(flowBuilder, nodeBuilder);
+        } else {
+            removeFlow(flowBuilder, nodeBuilder);
+        }
+
     }
 
     /**
@@ -716,13 +803,13 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     }
 
     @Override
-    public Node getMdNode(String nodeName) {
-        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeName));
+    public Node getMdNode(String nodeDpId) {
+        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeDpId));
         NodeId nodeId = new NodeId("openflow:"+dpid.toString());
         NodeKey nodeKey = new NodeKey(nodeId);
         InstanceIdentifier<Node> nodeIdentifier = InstanceIdentifier.builder(Nodes.class).
                                                         child(Node.class,nodeKey).toInstance();
-        log.trace("getMdNode: MDNodeIdentifier {}", nodeIdentifier);
+//        log.trace("getMdNode: MDNodeIdentifier {}", nodeIdentifier);
 
         IMDSALConsumer mdsalConsumer = (IMDSALConsumer) ServiceHelper.getInstance(IMDSALConsumer.class, "default", this);
         if (mdsalConsumer == null) {
@@ -749,7 +836,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
            // data are present in data store.
 //            log.debug("getMdNode: data {}", data);
             Node node = data.get();
-            log.trace("getMdNode: Node {}", node.getId());
+//            log.trace("getMdNode: Node {}", node.getId());
             return node;
         } else {
             log.error("getMdNode: data is not present for identifier {}", nodeIdentifier);
@@ -810,5 +897,47 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
     }
 
+    @Override
+    public Long getExternalInterfaceOfPort(final Node ofNode){
+        OvsdbConfigService ovsdbConfigService = (OvsdbConfigService)ServiceHelper.getGlobalInstance(OvsdbConfigService.class, this);
+        IConnectionServiceInternal connectionService = (IConnectionServiceInternal)ServiceHelper.getGlobalInstance(IConnectionServiceInternal.class, this);
+        List<org.opendaylight.controller.sal.core.Node> ovsNodes = connectionService.getNodes();
 
+        for (org.opendaylight.controller.sal.core.Node ovsNode : ovsNodes) {
+            Map<String, Row> bridges = ovsdbConfigService.getRows(ovsNode, ovsdbConfigService.getTableName(ovsNode, Bridge.class));
+            if (bridges == null) continue;
+            for (String brUuid : bridges.keySet()) {
+                Bridge bridge = ovsdbConfigService.getTypedRow(ovsNode, Bridge.class, bridges.get(brUuid));
+
+                long bridgeDpid = HexEncode.stringToLong((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
+                long ofNodeDpid = HexEncode.stringToLong(ofNode.getId().getValue().split(":")[1]);
+
+                if (ofNodeDpid == bridgeDpid){
+                    // Found the bridge
+                    log.trace("getExternalInterfaceOfPort: find ovsNode {} bridge {} for ofNode {}", ovsNode, bridge.getName(), ofNode);
+                    return getExternalInterfaceOfPort(ovsNode, bridge);
+
+                }
+            }
+        }
+        return null;
+    }
+
+    private Long getExternalInterfaceOfPort(org.opendaylight.controller.sal.core.Node ovsNode, Bridge bridge){
+        OvsdbConfigService ovsdbConfigService = (OvsdbConfigService)ServiceHelper.getGlobalInstance(OvsdbConfigService.class, this);
+        Map<String, Row> ports = ovsdbConfigService.getRows(ovsNode, ovsdbConfigService.getTableName(ovsNode, Port.class));
+
+        Set<UUID> portUuids = bridge.getPortsColumn().getData();
+        for (UUID portUuid : portUuids) {
+            Port port = ovsdbConfigService.getTypedRow(ovsNode, Port.class, ports.get(portUuid.toString()));
+            UUID interfaceUuid = (UUID) port.getInterfacesColumn().getData().toArray()[0];
+            Row interfaceRow = ovsdbConfigService.getRow(ovsNode, ovsdbConfigService.getTableName(ovsNode, Interface.class), interfaceUuid.toString());
+            Interface intf = ovsdbConfigService.getTypedRow(ovsNode, Interface.class, interfaceRow);
+            if (intf.getTypeColumn().getData().equalsIgnoreCase("system")){
+                log.trace("getExternalInterfaceOfPort: ovsNode {}, bridge {}, find externalInterface {}", ovsNode, bridge.getName(), intf.getName());
+                return (Long) intf.getOpenFlowPortColumn().getData().toArray()[0];
+            }
+        }
+        return null;
+    }
 }
