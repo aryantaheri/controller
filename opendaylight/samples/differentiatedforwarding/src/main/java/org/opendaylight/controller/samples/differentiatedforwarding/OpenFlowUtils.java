@@ -5,14 +5,23 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.opendaylight.controller.sal.match.extensible.NwTos;
+import org.opendaylight.controller.sal.utils.NetUtils;
+import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Dscp;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Ipv4Prefix;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.PortNumber;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Uri;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.OutputActionCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.SetNwSrcActionCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.SetNwTosActionCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.output.action._case.OutputActionBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.set.nw.src.action._case.SetNwSrcActionBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.set.nw.tos.action._case.SetNwTosActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.Action;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.address.address.Ipv4Builder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.Match;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.MatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.ApplyActionsCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.apply.actions._case.ApplyActionsBuilder;
@@ -23,6 +32,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.EtherTyp
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetTypeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.EthernetMatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.IpMatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.Layer3Match;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.TunnelBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._3.match.Ipv4MatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._4.match.UdpMatchBuilder;
@@ -67,6 +77,23 @@ public class OpenFlowUtils {
             Node openFlowMDNode,
             NodeConnector inPortMDNodeConnector) {
 
+        matchBuilder.setInPort(inPortMDNodeConnector.getId());
+        return matchBuilder;
+    }
+
+    /**
+     * FIXME: Broken
+     * @param matchBuilder
+     * @param openFlowMDNode
+     * @param inPortMDNodeConnector
+     * @return
+     */
+    public static MatchBuilder addInPortMatch(MatchBuilder matchBuilder,
+            Node openFlowMDNode,
+            NodeConnector inPortMDNodeConnector) {
+        MatchBuilder matchBuilder2 = new MatchBuilder();
+        matchBuilder2.setInPort(inPortMDNodeConnector.getId());
+//        matchBuilder.addAugmentation(Match.class, matchBuilder2.build());
         matchBuilder.setInPort(inPortMDNodeConnector.getId());
         return matchBuilder;
     }
@@ -126,6 +153,34 @@ public class OpenFlowUtils {
         Ipv4Prefix srcIp = new Ipv4Prefix(srcAddr.getHostAddress());
         Ipv4MatchBuilder ipv4match = new Ipv4MatchBuilder();
         ipv4match.setIpv4Source(srcIp);
+
+        matchBuilder.setLayer3Match(ipv4match.build());
+
+        return matchBuilder;
+
+    }
+
+    /**
+     *
+     * @param matchBuilder
+     * @param srcAddr
+     * @param dstAddr
+     * @return
+     */
+    public static MatchBuilder createSrcDstL3IPv4Match(MatchBuilder matchBuilder, InetAddress srcAddr, InetAddress dstAddr) {
+
+        EthernetMatchBuilder eth = new EthernetMatchBuilder();
+        EthernetTypeBuilder ethTypeBuilder = new EthernetTypeBuilder();
+        ethTypeBuilder.setType(new EtherType(0x0800L));
+        eth.setEthernetType(ethTypeBuilder.build());
+        matchBuilder.setEthernetMatch(eth.build());
+
+        Ipv4Prefix srcIp = new Ipv4Prefix(srcAddr.getHostAddress());
+        Ipv4Prefix dstIp = new Ipv4Prefix(dstAddr.getHostAddress());
+        Ipv4MatchBuilder ipv4match = new Ipv4MatchBuilder();
+        ipv4match.setIpv4Source(srcIp);
+        ipv4match.setIpv4Destination(dstIp);
+
         matchBuilder.setLayer3Match(ipv4match.build());
 
         return matchBuilder;
@@ -160,6 +215,13 @@ public class OpenFlowUtils {
         return matchBuilder;
     }
 
+    public static MatchBuilder createNwDscpMatch(MatchBuilder matchBuilder, short dscp){
+        IpMatchBuilder ipMatchBuilder = new IpMatchBuilder();
+        Dscp value = new Dscp(dscp);
+        ipMatchBuilder.setIpDscp(value);
+        return matchBuilder;
+    }
+
     /**
      * Create Output Port Instruction
      *
@@ -185,6 +247,34 @@ public class OpenFlowUtils {
         // Create an Apply Action
         ApplyActionsBuilder aab = new ApplyActionsBuilder();
         aab.setAction(actionList);
+        ib.setInstruction(new ApplyActionsCaseBuilder().setApplyActions(aab.build()).build());
+
+        return ib;
+    }
+
+    /**
+     * Create Set DSCP Instruction. Note this won't set the two least significant bits of ToS for OVS (i.e. ECN)
+     *
+     * @param ib        Map InstructionBuilder without any instructions
+     * @param prefixsrc String containing an IPv4 prefix
+     * @return ib Map InstructionBuilder with instructions
+     */
+    public static InstructionBuilder createNwDscpInstructions(InstructionBuilder ib, short dscp) {
+
+        List<Action> actionList = new ArrayList<Action>();
+        ActionBuilder ab = new ActionBuilder();
+
+        SetNwTosActionBuilder setNwTosActionBuilder = new SetNwTosActionBuilder();
+        // Shift to cover the ECN
+        setNwTosActionBuilder.setTos(dscp << 2);
+        ab.setAction(new SetNwTosActionCaseBuilder().setSetNwTosAction(setNwTosActionBuilder.build()).build());
+        actionList.add(ab.build());
+
+        // Create an Apply Action
+        ApplyActionsBuilder aab = new ApplyActionsBuilder();
+        aab.setAction(actionList);
+
+        // Wrap our Apply Action in an Instruction
         ib.setInstruction(new ApplyActionsCaseBuilder().setApplyActions(aab.build()).build());
 
         return ib;

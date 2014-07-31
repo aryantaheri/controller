@@ -107,7 +107,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      */
     private ConcurrentMap<HostNodePair, HashMap<org.opendaylight.controller.sal.core.NodeConnector, FlowEntry>> rulesDB;
     private static final String DIFF_FORWARDING_RULES_CACHE_NAME = "differentiatedforwarding.ipswitch.rules";
-
+    private Map<Tunnel, Short> tunnelsDscp;
 
     /**
      * OpenFlow Tables
@@ -134,10 +134,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     void init() {
         log.debug("init()");
         allocateRulesDB();
-        //FIME: This is wrong and should be fixed by introducing a new Interface for YKSP
-//        Object[] rList = ServiceHelper.getInstance(IKShortestRoutes.class, this);
-
-
+        tunnelsDscp = new HashMap<>();
     }
 
     /**
@@ -217,7 +214,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         log.debug("programTunnelForwarding: selected path for tunnel {} with classNum {} is {}", tunnel, classNum, path);
         List<Edge> edges = path.getEdges();
 
-
+        tunnelsDscp.put(tunnel, (short) classNum);
 
         /**
          * lastInPort-srcNode-outPort ----> inPort-dstNode
@@ -242,7 +239,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                 writeLLDPRule(outPortMDNode);
                 writeNormalRule(outPortMDNode);
             } else {
-                // middle/end node or err
+                // Transit node or err
                 lastInPortMDNode = constructMDNode(lastInPort.getNode());
                 lastInPortMDNC = constructMDNodeConnector(lastInPort);
 
@@ -275,7 +272,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         log.debug("programTunnelSource: tunnel {} outPortMDNode {} outPortMDNC {} write {}", tunnel, outPortMDNode.getId(), outPortMDNC.getId(), write);
         handleIngressTrafficToTunnelSource(tunnel, outPortMDNode, outPortMDNC, write);
         // NOTE: in OVS you can not enforce tunnel egress port.
-        handleExternalInterfaceForwarding(outPortMDNode);
+        handleExternalInterfaceForwarding(tunnel, outPortMDNode);
     }
 
     /**
@@ -295,7 +292,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      *
      * @param Node
      */
-    private void handleExternalInterfaceForwarding(Node node) {
+    private void handleExternalInterfaceForwarding(Tunnel tunnel, Node node) {
         log.debug("handleExternalInterfaceForwarding: node {}", node);
         List<NodeConnector> nodeConnectors = node.getNodeConnector();
 
@@ -310,7 +307,56 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         writeSimpleInOutRule(node, exNodeConnector, localNodeConnector, flowNameExtLocal, PRIORITY_TUNNEL_EXTLOCAL, TABLE_0_DEFAULT_INGRESS, true);
 
         String flowNameLocalExt = "TE_TUNNEL_LOCAL_EXT";
-        writeSimpleInOutRule(node, localNodeConnector, exNodeConnector, flowNameLocalExt, PRIORITY_TUNNEL_EXTLOCAL, TABLE_0_DEFAULT_INGRESS, true);
+//        writeSimpleInOutRule(node, localNodeConnector, exNodeConnector, flowNameLocalExt, PRIORITY_TUNNEL_EXTLOCAL, TABLE_0_DEFAULT_INGRESS, true);
+        markDscpAndWriteRule(tunnel, node, localNodeConnector, exNodeConnector, flowNameLocalExt, PRIORITY_TUNNEL_EXTLOCAL, TABLE_0_DEFAULT_INGRESS, true);
+    }
+
+    private void markDscpAndWriteRule(Tunnel tunnel, Node node, NodeConnector inPort, NodeConnector outPort, String flowName, int priority, short table, boolean write) {
+        MatchBuilder matchBuilder = new MatchBuilder();
+        FlowBuilder flowBuilder = new FlowBuilder();
+        NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(node, table);
+
+        OpenFlowUtils.createSrcDstL3IPv4Match(matchBuilder, tunnel.getSrcAddress(), tunnel.getDstAddress());
+        OpenFlowUtils.createInPortMatch(matchBuilder, node, inPort);
+
+        flowBuilder.setMatch(matchBuilder.build());
+
+        flowBuilder.setId(new FlowId(flowName));
+        FlowKey flowKey = new FlowKey(flowBuilder.getId());
+        flowBuilder.setStrict(true);
+        flowBuilder.setBarrier(false);
+        flowBuilder.setTableId(table);
+        flowBuilder.setKey(flowKey);
+        flowBuilder.setFlowName(flowName);
+        flowBuilder.setHardTimeout(0);
+        flowBuilder.setIdleTimeout(0);
+        flowBuilder.setPriority(priority);
+
+        if(write){
+            log.debug("markDscpAndWriteRule: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
+            InstructionBuilder ib = new InstructionBuilder();
+            InstructionsBuilder isb = new InstructionsBuilder();
+            List<Instruction> instructions = new ArrayList<Instruction>();
+
+            ib = OpenFlowUtils.createNwDscpInstructions(ib, tunnelsDscp.get(tunnel));
+            ib.setOrder(0);
+            ib.setKey(new InstructionKey(0));
+            instructions.add(ib.build());
+
+            ib = OpenFlowUtils.createOutputPortInstructions(ib, node, outPort);
+            ib.setOrder(1);
+            ib.setKey(new InstructionKey(1));
+            instructions.add(ib.build());
+
+            isb.setInstruction(instructions);
+
+            flowBuilder.setInstructions(isb.build());
+
+            writeFlow(flowBuilder, nodeBuilder);
+        } else {
+            removeFlow(flowBuilder, nodeBuilder);
+        }
+
     }
 
     private void writeSimpleInOutRule(Node node, NodeConnector inPort, NodeConnector outPort, String flowName, int priority, short table, boolean write){
@@ -349,7 +395,6 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         } else {
             removeFlow(flowBuilder, nodeBuilder);
         }
-
     }
 
     /**
@@ -382,6 +427,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         FlowBuilder flowBuilder = new FlowBuilder();
         NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(outPortMDNode, TABLE_0_DEFAULT_INGRESS);
 
+        //FIXME: This is broken, and only the last port is set. We should augment it with other MatchBuilders probably.
         for (NodeConnector ingressNodeConnector : ingressPorts) {
             flowBuilder.setMatch(OpenFlowUtils.createInPortMatch(matchBuilder, srcNode, ingressNodeConnector).build());
         }
@@ -429,6 +475,15 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         }
     }
 
+    /**
+     * This essentially program all transit nodes.
+     * @param tunnel
+     * @param lastInPortMDNode
+     * @param lastInPortMDNC
+     * @param outPortMDNode
+     * @param outPortMDNC
+     * @param write
+     */
     private void programEdgeTail(final Tunnel tunnel, final Node lastInPortMDNode, final NodeConnector lastInPortMDNC,
                                         final Node outPortMDNode, final NodeConnector outPortMDNC, boolean write) {
 
@@ -447,6 +502,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             log.trace("programEdgeTail: middle/last node/edge is programming");
             // Match on lastInPort
             flowBuilder.setMatch(OpenFlowUtils.createInPortMatch(matchBuilder, lastInPortMDNode, lastInPortMDNC).build());
+
         } else {
             log.debug("programEdgeTail: tunnel {}, lastInPortMDNode {}, lastInPortMDNC {}, outPortMDNode {}, outPortMDNC {}, write {}",
                     tunnel, lastInPortMDNode, lastInPortMDNC, outPortMDNode.getId(), outPortMDNC, write);
@@ -455,16 +511,19 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         }
 
 
-        // FIXME: Match on Tunnel ID. This is broken!
-//        flowBuilder.setMatch(OpenFlowUtils.createTunnelIDMatch(matchBuilder, new BigInteger(tunnel.getTunnelKey())).build());
+        // NOTE: Match on Tunnel ID. This is broken! tun_id is a metadata and won't be accessible in transit.
+        // flowBuilder.setMatch(OpenFlowUtils.createTunnelIDMatch(matchBuilder, new BigInteger(tunnel.getTunnelKey())).build());
+
         // FIXME: Alternatively use destination tunnel port to cover the tunnel ID. tp_dst=tun_id,
         // this should be taken care of while creating tunnels
         flowBuilder.setMatch(OpenFlowUtils.createDstPortUdpMatch(matchBuilder, new PortNumber(Integer.parseInt(tunnel.getTunnelKey()))).build());
-        // Match on Destination IP
-        flowBuilder.setMatch(OpenFlowUtils.createDstL3IPv4Match(matchBuilder, tunnel.getDstAddress()).build());
-        // Match on Source IP
-        flowBuilder.setMatch(OpenFlowUtils.createSrcL3IPv4Match(matchBuilder, tunnel.getSrcAddress()).build());
 
+        // Match on Destination IP
+        // Match on Source IP
+        flowBuilder.setMatch(OpenFlowUtils.createSrcDstL3IPv4Match(matchBuilder, tunnel.getSrcAddress(), tunnel.getDstAddress()).build());
+
+        // Match on DSCP
+        flowBuilder.setMatch(OpenFlowUtils.createNwDscpMatch(matchBuilder, tunnelsDscp.get(tunnel)).build());
 
         String flowName = "QoS_Tunnel_" + tunnel.getTunnelKey() + "_"
                                         + outPortMDNode.getId().getValue() + "_"
