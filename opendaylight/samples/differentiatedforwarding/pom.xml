@@ -53,13 +53,18 @@
     </dependency>
     <dependency>
       <groupId>org.opendaylight.controller</groupId>
-      <artifactId>sal-compatibility</artifactId>
+      <artifactId>sal-common-impl</artifactId>
       <version>1.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.opendaylight.controller</groupId>
-      <artifactId>samples.simpleforwarding</artifactId>
+      <artifactId>sal-compatibility</artifactId>
+      <version>1.1-SNAPSHOT</version>
     </dependency>
+    <!--<dependency>
+      <groupId>org.opendaylight.controller</groupId>
+      <artifactId>samples.simpleforwarding</artifactId>
+    </dependency>-->
     <dependency>
       <groupId>org.opendaylight.controller</groupId>
       <artifactId>switchmanager</artifactId>
@@ -87,15 +92,26 @@
       <artifactId>model-inventory</artifactId>
       <version>1.1-SNAPSHOT</version>
     </dependency>
+
     <dependency>
       <groupId>org.opendaylight.ovsdb</groupId>
-      <artifactId>ovsdb</artifactId>
-      <version>0.5.1-SNAPSHOT</version>
+      <artifactId>library</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.opendaylight.ovsdb</groupId>
-      <artifactId>ovsdb.neutron</artifactId>
+      <artifactId>neutron</artifactId>
       <version>0.7.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.ovsdb</groupId>
+      <artifactId>plugin</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>org.opendaylight.ovsdb</groupId>
+      <artifactId>schema.openvswitch</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.opendaylight.yangtools</groupId>
@@ -127,15 +143,14 @@
               org.opendaylight.controller.sal.packet,
               org.opendaylight.controller.sal.routing,
               org.opendaylight.controller.md.sal.common.api,
+              org.opendaylight.controller.md.sal.common.impl,
+              org.opendaylight.controller.md.sal.binding.api,
               org.opendaylight.controller.topologymanager,
-              org.opendaylight.controller.samples.simpleforwarding,
               org.opendaylight.controller.routing.yenkshortestpaths.internal,
               org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819,
               org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes,
               org.opendaylight.ovsdb.plugin,
               org.opendaylight.ovsdb.lib.notation,
-              org.opendaylight.ovsdb.lib.table,
-              org.opendaylight.ovsdb.lib.table.internal,
               org.opendaylight.ovsdb.neutron,
               org.opendaylight.yangtools.yang.binding,
               org.opendaylight.yangtools.concepts,
