@@ -293,10 +293,14 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      * @param Node
      */
     private void handleExternalInterfaceForwarding(Tunnel tunnel, Node node) {
-        log.debug("handleExternalInterfaceForwarding: node {}", node);
+        log.debug("handleExternalInterfaceForwarding: node {}", node.getId());
         List<NodeConnector> nodeConnectors = node.getNodeConnector();
 
         Long externalInterfaceOfPort = getExternalInterfaceOfPort(node);
+        if (externalInterfaceOfPort == null){
+            log.error("handleExternalInterfaceForwarding: Can not find the ExternalInterface on {}. Returning", node);
+            return;
+        }
         NodeConnectorId exInfId = new NodeConnectorId(node.getId().getValue() + ":" + externalInterfaceOfPort);
         NodeConnector exNodeConnector = new NodeConnectorBuilder().setId(exInfId).build();
 
@@ -307,7 +311,6 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         writeSimpleInOutRule(node, exNodeConnector, localNodeConnector, flowNameExtLocal, PRIORITY_TUNNEL_EXTLOCAL, TABLE_0_DEFAULT_INGRESS, true);
 
         String flowNameLocalExt = "TE_TUNNEL_LOCAL_EXT";
-//        writeSimpleInOutRule(node, localNodeConnector, exNodeConnector, flowNameLocalExt, PRIORITY_TUNNEL_EXTLOCAL, TABLE_0_DEFAULT_INGRESS, true);
         markDscpAndWriteRule(tunnel, node, localNodeConnector, exNodeConnector, flowNameLocalExt, PRIORITY_TUNNEL_EXTLOCAL, TABLE_0_DEFAULT_INGRESS, true);
     }
 
@@ -969,7 +972,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                 Bridge bridge = ovsdbConfigService.getTypedRow(ovsNode, Bridge.class, bridges.get(brUuid));
 
                 long bridgeDpid = HexEncode.stringToLong((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
-                long ofNodeDpid = HexEncode.stringToLong(ofNode.getId().getValue().split(":")[1]);
+                long ofNodeDpid = Long.parseLong(ofNode.getId().getValue().split(":")[1]);
 
                 if (ofNodeDpid == bridgeDpid){
                     // Found the bridge
@@ -979,6 +982,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                 }
             }
         }
+        log.error("getExternalInterfaceOfPort: didn't find ExternalInterface in ofNode {} make sure the type is system", ofNode.getId());
         return null;
     }
 
@@ -997,6 +1001,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                 return (Long) intf.getOpenFlowPortColumn().getData().toArray()[0];
             }
         }
+        log.error("getExternalInterfaceOfPort: didn't find ExternalInterface in ovsNode {} bridge {} make sure the type is system", ovsNode.getNodeIDString(), bridge.getName());
         return null;
     }
 }
