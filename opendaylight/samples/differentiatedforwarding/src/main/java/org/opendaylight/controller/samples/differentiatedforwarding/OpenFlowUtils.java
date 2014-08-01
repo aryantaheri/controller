@@ -212,6 +212,8 @@ public class OpenFlowUtils {
         IpMatchBuilder ipMatchBuilder = new IpMatchBuilder();
         Dscp value = new Dscp(dscp);
         ipMatchBuilder.setIpDscp(value);
+        matchBuilder.setIpMatch(ipMatchBuilder.build());
+
         return matchBuilder;
     }
 
@@ -249,7 +251,7 @@ public class OpenFlowUtils {
      * Create Set DSCP Instruction. Note this won't set the two least significant bits of ToS for OVS (i.e. ECN)
      *
      * @param ib        Map InstructionBuilder without any instructions
-     * @param prefixsrc String containing an IPv4 prefix
+     * @param dscp
      * @return ib Map InstructionBuilder with instructions
      */
     public static InstructionBuilder createNwDscpInstructions(InstructionBuilder ib, short dscp) {
@@ -258,9 +260,11 @@ public class OpenFlowUtils {
         ActionBuilder ab = new ActionBuilder();
 
         SetNwTosActionBuilder setNwTosActionBuilder = new SetNwTosActionBuilder();
-        // Shift to cover the ECN
-        setNwTosActionBuilder.setTos(dscp << 2);
+        // ODL OF use the nw_tos_shifted field to cover the ECN. However, the field is still called ToS here.
+        setNwTosActionBuilder.setTos((int) dscp);
         ab.setAction(new SetNwTosActionCaseBuilder().setSetNwTosAction(setNwTosActionBuilder.build()).build());
+        ab.setOrder(0);
+        ab.setKey(new ActionKey(0));
         actionList.add(ab.build());
 
         // Create an Apply Action
@@ -273,6 +277,32 @@ public class OpenFlowUtils {
         return ib;
     }
 
+    public static InstructionBuilder createMarkDscpAndOutputInstructions(InstructionBuilder ib, short dscp, NodeConnector outputPort){
+        List<Action> actionList = new ArrayList<Action>();
+
+        ActionBuilder ab = new ActionBuilder();
+        SetNwTosActionBuilder setNwTosActionBuilder = new SetNwTosActionBuilder();
+        setNwTosActionBuilder.setTos((int) dscp);
+        ab.setAction(new SetNwTosActionCaseBuilder().setSetNwTosAction(setNwTosActionBuilder.build()).build());
+        ab.setOrder(1);
+        ab.setKey(new ActionKey(1));
+        actionList.add(ab.build());
+
+        ActionBuilder ab2 = new ActionBuilder();
+        OutputActionBuilder oab = new OutputActionBuilder();
+        oab.setOutputNodeConnector(outputPort.getId());
+        ab2.setAction(new OutputActionCaseBuilder().setOutputAction(oab.build()).build());
+        ab2.setOrder(0);
+        ab2.setKey(new ActionKey(0));
+        actionList.add(ab2.build());
+
+        ApplyActionsBuilder aab = new ApplyActionsBuilder();
+        aab.setAction(actionList);
+
+        ib.setInstruction(new ApplyActionsCaseBuilder().setApplyActions(aab.build()).build());
+
+        return ib;
+    }
     /**
      * Create NORMAL Reserved Port Instruction (packet_in)
      *

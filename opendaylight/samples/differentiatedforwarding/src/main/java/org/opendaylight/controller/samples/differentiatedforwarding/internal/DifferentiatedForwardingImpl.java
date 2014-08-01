@@ -1,19 +1,13 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.internal;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
-import org.opendaylight.controller.clustering.services.CacheConfigException;
-import org.opendaylight.controller.clustering.services.CacheExistException;
 import org.opendaylight.controller.clustering.services.IClusterContainerServices;
-import org.opendaylight.controller.clustering.services.IClusterServices;
-import org.opendaylight.controller.forwardingrulesmanager.FlowEntry;
 import org.opendaylight.controller.forwardingrulesmanager.IForwardingRulesManager;
 import org.opendaylight.controller.hosttracker.IfIptoHost;
 import org.opendaylight.controller.hosttracker.IfNewHostNotify;
@@ -41,7 +35,6 @@ import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
 import org.opendaylight.controller.samples.differentiatedforwarding.OpenFlowUtils;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
-import org.opendaylight.controller.samples.simpleforwarding.HostNodePair;
 import org.opendaylight.controller.switchmanager.IInventoryListener;
 import org.opendaylight.controller.switchmanager.ISwitchManager;
 import org.opendaylight.controller.topologymanager.ITopologyManager;
@@ -52,7 +45,6 @@ import org.opendaylight.ovsdb.plugin.OvsdbConfigService;
 import org.opendaylight.ovsdb.schema.openvswitch.Bridge;
 import org.opendaylight.ovsdb.schema.openvswitch.Interface;
 import org.opendaylight.ovsdb.schema.openvswitch.Port;
-import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.PortNumber;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNodeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowId;
@@ -105,7 +97,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      * to be a switch's port, in actuality it is a special port which just
      * represents the switch.
      */
-    private ConcurrentMap<HostNodePair, HashMap<org.opendaylight.controller.sal.core.NodeConnector, FlowEntry>> rulesDB;
+//    private ConcurrentMap<HostNodePair, HashMap<org.opendaylight.controller.sal.core.NodeConnector, FlowEntry>> rulesDB;
     private static final String DIFF_FORWARDING_RULES_CACHE_NAME = "differentiatedforwarding.ipswitch.rules";
     private Map<Tunnel, Short> tunnelsDscp;
 
@@ -119,7 +111,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      * OpenFlow Priorities
      */
     private static final int PRIORITY_NORMAL = 0;
-    private static final int PRIORITY_LLDP = 1;
+    private static final int PRIORITY_LLDP = 4000; // Put it high, so it will reach controller
     private static final int PRIORITY_TUNNEL_EXTLOCAL = 999;
     private static final int PRIORITY_TUNNEL_TRANSIT = 1000;
     private static final int PRIORITY_TUNNEL_SRC_IN = 1001;
@@ -174,13 +166,13 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             return;
         }
 
-        try {
-            rulesDB = (ConcurrentMap<HostNodePair, HashMap<org.opendaylight.controller.sal.core.NodeConnector, FlowEntry>>) clusterContainerService.createCache(DIFF_FORWARDING_RULES_CACHE_NAME, EnumSet.of(IClusterServices.cacheMode.TRANSACTIONAL));
-        } catch (CacheExistException cee) {
-            log.error("\nCache already exists - destroy and recreate if needed", cee);
-        } catch (CacheConfigException cce) {
-            log.error("\nCache configuration invalid - check cache mode", cce);
-        }
+//        try {
+//            rulesDB = (ConcurrentMap<HostNodePair, HashMap<org.opendaylight.controller.sal.core.NodeConnector, FlowEntry>>) clusterContainerService.createCache(DIFF_FORWARDING_RULES_CACHE_NAME, EnumSet.of(IClusterServices.cacheMode.TRANSACTIONAL));
+//        } catch (CacheExistException cee) {
+//            log.error("\nCache already exists - destroy and recreate if needed", cee);
+//        } catch (CacheConfigException cce) {
+//            log.error("\nCache configuration invalid - check cache mode", cce);
+//        }
     }
 
 
@@ -341,16 +333,20 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             InstructionsBuilder isb = new InstructionsBuilder();
             List<Instruction> instructions = new ArrayList<Instruction>();
 
-            ib = OpenFlowUtils.createNwDscpInstructions(ib, tunnelsDscp.get(tunnel));
+//            ib = OpenFlowUtils.createNwDscpInstructions(ib, tunnelsDscp.get(tunnel));
+//            ib.setOrder(0);
+//            ib.setKey(new InstructionKey(0));
+//            instructions.add(ib.build());
+//
+//            ib = OpenFlowUtils.createOutputPortInstructions(ib, node, outPort);
+//            ib.setOrder(1);
+//            ib.setKey(new InstructionKey(1));
+//            instructions.add(ib.build());
+
+            OpenFlowUtils.createMarkDscpAndOutputInstructions(ib, tunnelsDscp.get(tunnel), outPort);
             ib.setOrder(0);
             ib.setKey(new InstructionKey(0));
             instructions.add(ib.build());
-
-            ib = OpenFlowUtils.createOutputPortInstructions(ib, node, outPort);
-            ib.setOrder(1);
-            ib.setKey(new InstructionKey(1));
-            instructions.add(ib.build());
-
             isb.setInstruction(instructions);
 
             flowBuilder.setInstructions(isb.build());
@@ -519,14 +515,14 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
         // FIXME: Alternatively use destination tunnel port to cover the tunnel ID. tp_dst=tun_id,
         // this should be taken care of while creating tunnels
-        flowBuilder.setMatch(OpenFlowUtils.createDstPortUdpMatch(matchBuilder, new PortNumber(Integer.parseInt(tunnel.getTunnelKey()))).build());
-
-        // Match on Destination IP
-        // Match on Source IP
-        flowBuilder.setMatch(OpenFlowUtils.createSrcDstL3IPv4Match(matchBuilder, tunnel.getSrcAddress(), tunnel.getDstAddress()).build());
+        // flowBuilder.setMatch(OpenFlowUtils.createDstPortUdpMatch(matchBuilder, new PortNumber(Integer.parseInt(tunnel.getTunnelKey()))).build());
 
         // Match on DSCP
         flowBuilder.setMatch(OpenFlowUtils.createNwDscpMatch(matchBuilder, tunnelsDscp.get(tunnel)).build());
+
+        // Match on Source & Destination IP
+        flowBuilder.setMatch(OpenFlowUtils.createSrcDstL3IPv4Match(matchBuilder, tunnel.getSrcAddress(), tunnel.getDstAddress()).build());
+
 
         String flowName = "QoS_Tunnel_" + tunnel.getTunnelKey() + "_"
                                         + outPortMDNode.getId().getValue() + "_"
@@ -585,7 +581,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     }
 
     private void writeFlow(FlowBuilder flowBuilder, NodeBuilder nodeBuilder) {
-        log.debug("writeFlow: FlowBuilder {}, NodeBuilder {}", flowBuilder, nodeBuilder);
+        log.debug("writeFlow: Entry");
         IMDSALConsumer mdsalConsumer = (IMDSALConsumer) ServiceHelper.getInstance(IMDSALConsumer.class, "default", this);
         if (mdsalConsumer == null) {
             log.error("writeFlow: ERROR finding MDSAL Service.");
@@ -649,8 +645,6 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     */
 
     private void writeNormalRule(Node node) {
-
-
         MatchBuilder matchBuilder = new MatchBuilder();
         NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(node, TABLE_0_DEFAULT_INGRESS);
         FlowBuilder flowBuilder = new FlowBuilder();
@@ -698,7 +692,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     */
 
     private void writeLLDPRule(Node node) {
-        log.debug("writeLLDPRule: {}", node);
+        log.debug("writeLLDPRule: {}", node.getId());
         EtherType etherType = new EtherType(0x88CCL);
 
         MatchBuilder matchBuilder = new MatchBuilder();
@@ -859,10 +853,10 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     }
 
 
-    @Override
-    public ConcurrentMap<HostNodePair, HashMap<org.opendaylight.controller.sal.core.NodeConnector, FlowEntry>> getRulesDB() {
-        return rulesDB;
-    }
+//    @Override
+//    public ConcurrentMap<HostNodePair, HashMap<org.opendaylight.controller.sal.core.NodeConnector, FlowEntry>> getRulesDB() {
+//        return rulesDB;
+//    }
 
     @Override
     public Node getMdNode(String nodeDpId) {
@@ -976,7 +970,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
                 if (ofNodeDpid == bridgeDpid){
                     // Found the bridge
-                    log.trace("getExternalInterfaceOfPort: find ovsNode {} bridge {} for ofNode {}", ovsNode, bridge.getName(), ofNode);
+                    log.trace("getExternalInterfaceOfPort: found ovsNode {} bridge {} for ofNode {}", ovsNode.getNodeIDString(), bridge.getName(), ofNode.getId());
                     return getExternalInterfaceOfPort(ovsNode, bridge);
 
                 }
@@ -989,15 +983,19 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     private Long getExternalInterfaceOfPort(org.opendaylight.controller.sal.core.Node ovsNode, Bridge bridge){
         OvsdbConfigService ovsdbConfigService = (OvsdbConfigService)ServiceHelper.getGlobalInstance(OvsdbConfigService.class, this);
         Map<String, Row> ports = ovsdbConfigService.getRows(ovsNode, ovsdbConfigService.getTableName(ovsNode, Port.class));
-
         Set<UUID> portUuids = bridge.getPortsColumn().getData();
+        if (portUuids == null || ports == null) {
+            log.error("getExternalInterfaceOfPort: didn't find ExternalInterface in ovsNode {} bridge {} ports are not available", ovsNode.getNodeIDString(), bridge.getName());
+            return null;
+        }
+
         for (UUID portUuid : portUuids) {
             Port port = ovsdbConfigService.getTypedRow(ovsNode, Port.class, ports.get(portUuid.toString()));
             UUID interfaceUuid = (UUID) port.getInterfacesColumn().getData().toArray()[0];
             Row interfaceRow = ovsdbConfigService.getRow(ovsNode, ovsdbConfigService.getTableName(ovsNode, Interface.class), interfaceUuid.toString());
             Interface intf = ovsdbConfigService.getTypedRow(ovsNode, Interface.class, interfaceRow);
             if (intf.getTypeColumn().getData().equalsIgnoreCase("system")){
-                log.trace("getExternalInterfaceOfPort: ovsNode {}, bridge {}, find externalInterface {}", ovsNode, bridge.getName(), intf.getName());
+                log.trace("getExternalInterfaceOfPort: found externalInterface {}={}, ovsNode {}, bridge {}", intf.getName(), intf.getOpenFlowPortColumn().getData(), ovsNode, bridge.getName());
                 return (Long) intf.getOpenFlowPortColumn().getData().toArray()[0];
             }
         }
