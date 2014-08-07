@@ -75,23 +75,6 @@ public class OpenFlowUtils {
     }
 
     /**
-     * FIXME: Broken
-     * @param matchBuilder
-     * @param openFlowMDNode
-     * @param inPortMDNodeConnector
-     * @return
-     */
-    public static MatchBuilder addInPortMatch(MatchBuilder matchBuilder,
-            Node openFlowMDNode,
-            NodeConnector inPortMDNodeConnector) {
-        MatchBuilder matchBuilder2 = new MatchBuilder();
-        matchBuilder2.setInPort(inPortMDNodeConnector.getId());
-//        matchBuilder.addAugmentation(Match.class, matchBuilder2.build());
-        matchBuilder.setInPort(inPortMDNodeConnector.getId());
-        return matchBuilder;
-    }
-
-    /**
      * Tunnel ID Match Builder
      *
      * @param matchBuilder  MatchBuilder Object without a match yet
