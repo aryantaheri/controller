@@ -229,7 +229,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             NodeConnector inPortMDNC = constructMDNodeConnector(inPort);
 
             if (outPortMDNode == null || inPortMDNode == null){
-                log.error("programTunnelForwarding: outPortMDNode {} or inPortMDNode {} is null. Aborting", outPortMDNode, inPortMDNode);
+                log.error("programTunnelForwarding: outPortMDNode or inPortMDNode is null for edge {} tunnel {}. Aborting", edge, tunnel);
                 return;
             }
             if (lastInPort == null){
@@ -344,7 +344,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
         // Match on in_port,ip,tos=0
         OpenFlowUtils.createInPortMatch(matchBuilder, node, localNodeConnector);
-//        OpenFlowUtils.createEtherTypeMatch(matchBuilder, new EtherType((long) EtherTypes.IPv4.intValue()));
+        OpenFlowUtils.createEtherTypeMatch(matchBuilder, new EtherType((long) EtherTypes.IPv4.intValue()));
         OpenFlowUtils.createNwDscpMatch(matchBuilder, (short) 0);
         flowBuilder.setMatch(matchBuilder.build());
 
@@ -363,7 +363,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         flowBuilder.setFlowName(flowName);
         flowBuilder.setHardTimeout(0);
         flowBuilder.setIdleTimeout(0);
-        flowBuilder.setPriority(PRIORITY_TUNNEL_LOCALEXT + 1); // Intentionally left relative, to make sure this rule is matched first
+        flowBuilder.setPriority((PRIORITY_TUNNEL_LOCALEXT + 1)); // Intentionally left relative, to make sure this rule is matched first
 
         if(write){
             log.debug("handleLocalInterfaceForwarding: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
