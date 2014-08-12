@@ -149,10 +149,10 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
             // Add/Check vertex presence
             vertexPresentInGraph = ykspTopology.addVertex(src.getNode());
             log.debug("updateTopo ADDED: vertex={} vertexPresentInGraph={}",
-                    src, vertexPresentInGraph);
+                    src.getNode(), vertexPresentInGraph);
             vertexPresentInGraph = ykspTopology.addVertex(dst.getNode());
             log.debug("updateTopo ADDED: vertex={} vertexPresentInGraph={}",
-                    dst, vertexPresentInGraph);
+                    dst.getNode(), vertexPresentInGraph);
 
             // Add/Check edge presence
             edgePresentInGraph = ykspTopology.containsEdge(weightedEdge);
@@ -176,6 +176,13 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
                 log.error(
                         "updateTopo CHANGED: There is no edge between src {} and dst {}. The non-existing edge can not be changed. The new edge will be added",
                         src, dst);
+                // Add/Check vertex presence
+                vertexPresentInGraph = ykspTopology.addVertex(src.getNode());
+                log.debug("updateTopo CHANGED: vertex={} vertexPresentInGraph={}",
+                        src.getNode(), vertexPresentInGraph);
+                vertexPresentInGraph = ykspTopology.addVertex(dst.getNode());
+                log.debug("updateTopo CHANGED: vertex={} vertexPresentInGraph={}",
+                        dst.getNode(), vertexPresentInGraph);
             }
             topologyChanged = ykspTopology.addEdge(weightedEdge, src.getNode(),
                     dst.getNode(), EdgeType.DIRECTED);
