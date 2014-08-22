@@ -40,6 +40,10 @@ import org.slf4j.LoggerFactory;
 public class OpenFlowUtils {
     private static final Logger logger = LoggerFactory.getLogger(OpenFlowUtils.class);
 
+    public static BigInteger getDpId(String mac){
+        BigInteger dpId = new BigInteger(mac.replace(":", ""), 16);
+        return dpId;
+    }
     /**
      * Create EtherType Match
      *

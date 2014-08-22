@@ -1,5 +1,6 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.internal;
 
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,7 +33,6 @@ import org.opendaylight.controller.sal.packet.RawPacket;
 import org.opendaylight.controller.sal.routing.IListenRoutingUpdates;
 import org.opendaylight.controller.sal.routing.IRouting;
 import org.opendaylight.controller.sal.utils.EtherTypes;
-import org.opendaylight.controller.sal.utils.HexEncode;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
 import org.opendaylight.controller.samples.differentiatedforwarding.OpenFlowUtils;
@@ -1030,7 +1030,8 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
     @Override
     public Node getMdNode(String nodeDpId) {
-        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeDpId));
+//        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeDpId));
+        BigInteger dpid = OpenFlowUtils.getDpId(nodeDpId);
         NodeId nodeId = new NodeId("openflow:"+dpid.toString());
         NodeKey nodeKey = new NodeKey(nodeId);
         InstanceIdentifier<Node> nodeIdentifier = InstanceIdentifier.builder(Nodes.class).
@@ -1094,7 +1095,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
     private static NodeConnector constructMDNodeConnector(final org.opendaylight.controller.sal.core.NodeConnector connector) {
         String nodeName = connector.getNode().getNodeIDString();
-        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeName));
+        BigInteger dpid = OpenFlowUtils.getDpId(nodeName);
         NodeId nodeId = new NodeId("openflow:"+dpid.toString());
         NodeKey nodeKey = new NodeKey(nodeId);
         InstanceIdentifier<Node> nodeIdentifier = InstanceIdentifier.builder(Nodes.class).
@@ -1135,10 +1136,12 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             for (String brUuid : bridges.keySet()) {
                 Bridge bridge = ovsdbConfigService.getTypedRow(ovsNode, Bridge.class, bridges.get(brUuid));
 
-                long bridgeDpid = HexEncode.stringToLong((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
-                long ofNodeDpid = Long.parseLong(ofNode.getId().getValue().split(":")[1]);
+//                long bridgeDpid = HexEncode.stringToLong((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
+                BigInteger bridgeDpid = OpenFlowUtils.getDpId((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
+//                long ofNodeDpid = Long.parseLong(ofNode.getId().getValue().split(":")[1]);
+                BigInteger ofNodeDpid = new BigInteger(ofNode.getId().getValue().split(":")[1]);
 
-                if (ofNodeDpid == bridgeDpid){
+                if (ofNodeDpid.equals(bridgeDpid)){
                     // Found the bridge
                     log.trace("getExternalInterfaceOfPort: found ovsNode {} bridge {} for ofNode {}", ovsNode.getNodeIDString(), bridge.getName(), ofNode.getId());
                     return getExternalInterfaceOfPort(ovsNode, bridge);

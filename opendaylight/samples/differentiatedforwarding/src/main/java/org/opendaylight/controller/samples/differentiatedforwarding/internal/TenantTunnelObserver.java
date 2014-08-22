@@ -1,5 +1,6 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.internal;
 
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -19,9 +20,9 @@ import org.opendaylight.controller.sal.core.ConstructionException;
 import org.opendaylight.controller.sal.core.Edge;
 import org.opendaylight.controller.sal.core.Node;
 import org.opendaylight.controller.sal.core.NodeConnector;
-import org.opendaylight.controller.sal.utils.HexEncode;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
+import org.opendaylight.controller.samples.differentiatedforwarding.OpenFlowUtils;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
 import org.opendaylight.ovsdb.lib.notation.Row;
 import org.opendaylight.ovsdb.lib.notation.UUID;
@@ -438,9 +439,11 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
                     log.debug("getOpenFlowNode: OpenFlow Bridge is found: bridge {}, port {}, interface {}", bridge.getUuid(), port.getName(), intf.getName());
                     Set<String> dpids = bridge.getDatapathIdColumn().getData();
                     if (dpids == null || dpids.size() ==  0) return null;
-                    Long dpidLong = Long.valueOf(HexEncode.stringToLong((String)dpids.toArray()[0]));
+//                    Long dpidLong = Long.valueOf(HexEncode.stringToLong((String)dpids.toArray()[0]));
+                    BigInteger dpid = OpenFlowUtils.getDpId((String)dpids.toArray()[0]);
+
                     try {
-                        ofNode = new Node(Node.NodeIDType.OPENFLOW, dpidLong);
+                        ofNode = new Node(Node.NodeIDType.OPENFLOW, dpid);
                         log.trace("getOpenFlowNode: found ofNode {} for intfUuid {}, intf {}", ofNode, intfUuid, intf.getName());
                         return ofNode;
                     } catch (ConstructionException e) {
