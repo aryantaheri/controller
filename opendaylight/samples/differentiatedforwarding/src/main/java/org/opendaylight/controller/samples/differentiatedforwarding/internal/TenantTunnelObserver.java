@@ -1,6 +1,5 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.internal;
 
-import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -14,18 +13,22 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.opendaylight.controller.clustering.services.IClusterContainerServices;
+import org.opendaylight.controller.networkconfig.neutron.INeutronNetworkCRUD;
 import org.opendaylight.controller.networkconfig.neutron.NeutronNetwork;
+import org.opendaylight.controller.networkconfig.neutron.NeutronPort;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.IKShortestRoutes;
 import org.opendaylight.controller.sal.core.ConstructionException;
 import org.opendaylight.controller.sal.core.Edge;
 import org.opendaylight.controller.sal.core.Node;
 import org.opendaylight.controller.sal.core.NodeConnector;
+import org.opendaylight.controller.sal.utils.HexEncode;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
-import org.opendaylight.controller.samples.differentiatedforwarding.OpenFlowUtils;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
+import org.opendaylight.controller.samples.differentiatedforwarding.TunnelEndPoint;
 import org.opendaylight.ovsdb.lib.notation.Row;
 import org.opendaylight.ovsdb.lib.notation.UUID;
+import org.opendaylight.ovsdb.neutron.ITenantNetworkManager;
 import org.opendaylight.ovsdb.neutron.NetworkHandler;
 import org.opendaylight.ovsdb.neutron.SouthboundEvent;
 import org.opendaylight.ovsdb.neutron.SouthboundEvent.Action;
@@ -34,6 +37,7 @@ import org.opendaylight.ovsdb.plugin.OvsdbConfigService;
 import org.opendaylight.ovsdb.plugin.OvsdbInventoryListener;
 import org.opendaylight.ovsdb.schema.openvswitch.Bridge;
 import org.opendaylight.ovsdb.schema.openvswitch.Interface;
+import org.opendaylight.ovsdb.schema.openvswitch.OpenVSwitch;
 import org.opendaylight.ovsdb.schema.openvswitch.Port;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +59,7 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
     private ExecutorService tunnelEventHandler;
     //TODO: Use clusterContainerService.createCache for creating the object and storage
     private HashMap<String, List<Tunnel>> tunnelsMap;
-
+    private HashMap<String, List<TunnelEndPoint>> tunnelEndPointsMap;
 
     /**
      * Function called by the dependency manager when all the required
@@ -67,6 +71,7 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
         ovsdbTunnelInterfaceEvents = new LinkedBlockingQueue<SouthboundInterfaceEvent>();
         tunnelEventHandler = Executors.newSingleThreadExecutor();
         tunnelsMap = new HashMap<String, List<Tunnel>>();
+        tunnelEndPointsMap = new HashMap<String, List<TunnelEndPoint>>();
         //FIXME: This is wrong
         OvsdbConfigService ovsdbConfigService = (OvsdbConfigService)ServiceHelper.getGlobalInstance(OvsdbConfigService.class, this);
         setOVSDBConfigService(ovsdbConfigService);
@@ -210,30 +215,151 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
         OvsdbConfigService ovsdbConfigService = (OvsdbConfigService)ServiceHelper.getGlobalInstance(OvsdbConfigService.class, this);
         List<Node> nodes = connectionService.getNodes();
         if (nodes == null) return;
-        /**
-         *             OvsdbConfigService ovsdbTable = (OvsdbConfigService) ServiceHelper.getGlobalInstance(OvsdbConfigService.class, this);
-            Map<String, Row> bridgeTable = ovsdbTable.getRows(node, ovsdbTable.getTableName(node, Bridge.class));
-            if (bridgeTable != null) {
-                for (String key : bridgeTable.keySet()) {
-                    Bridge bridge = ovsdbTable.getTypedRow(node, Bridge.class, bridgeTable.get(key));
-                    if (bridge.getName().equals(bridgeName)) {
-                        return bridge;
-                    }
-                }
-            }
-         */
         for (Node node : nodes) {
             try {
                 Map<String, Row> rows = ovsdbConfigService.getRows(node, ovsdbConfigService.getTableName(node, Interface.class));
                 if (rows == null) continue;
                 for (String uuid : rows.keySet()) {
-//                    Interface row = ovsdbConfigService.getTypedRow(node, Interface.class, rows.get(uuid));
                     rowAdded(node, ovsdbConfigService.getTableName(node, Interface.class), uuid, rows.get(uuid));
                 }
             } catch (Exception e) {
                 log.error("bulkLoadTunnelsEvents: Exception during bulk load ", e);
             }
         }
+    }
+
+    private void loadTunnelEndPoints(){
+        log.debug("loadTunnelEndPoints");
+        INeutronNetworkCRUD neutronNetworkService = (INeutronNetworkCRUD)ServiceHelper.getGlobalInstance(INeutronNetworkCRUD.class, this);
+        if (neutronNetworkService == null){
+            log.error("loadTunnelEndPoints: INeutronNetworkCRUD is not available");
+            return;
+        }
+        List <NeutronNetwork> neutronNetworks = neutronNetworkService.getAllNetworks();
+        log.debug("loadTunnelEndPoints: neutronNetworks {}", neutronNetworks);
+        if (neutronNetworks == null) return;
+        for (NeutronNetwork neutronNetwork : neutronNetworks) {
+            String segmentationId = neutronNetwork.getProviderSegmentationID();
+            if (segmentationId == null) continue;
+
+            List<TunnelEndPoint> teps = tunnelEndPointsMap.get(segmentationId);
+            if (teps == null){
+                teps = new ArrayList<TunnelEndPoint>();
+                tunnelEndPointsMap.put(segmentationId, teps);
+            }
+
+            List<NeutronPort> neutronPorts = neutronNetwork.getPortsOnNetwork();
+            log.debug("loadTunnelEndPoints: segmentationId {}, neutronPorts {}", segmentationId, neutronPorts);
+            if (neutronPorts == null) continue;
+
+            List<Node> ovsdbNodes = findOvsdbNodes(neutronPorts);
+            log.debug("loadTunnelEndPoints: segmentationId {}, ovsdbNodes {}", segmentationId, ovsdbNodes);
+            if (ovsdbNodes == null) continue;
+
+            List<TunnelEndPoint> extractedTeps = extractTunnelEndPoints(ovsdbNodes, segmentationId);
+            log.debug("loadTunnelEndPoints: segmentationId {}, extractedTeps {}", segmentationId, extractedTeps);
+            if (extractedTeps == null) continue;
+            teps.addAll(extractedTeps);
+
+            tunnelEndPointsMap.put(segmentationId, teps);
+        }
+        log.debug("loadTunnelEndPoints: tunnelEndPointsMap {}", tunnelEndPointsMap);
+    }
+
+    private List<TunnelEndPoint> extractTunnelEndPoints(List<Node> ovsdbNodes, String segmentationId) {
+        List<TunnelEndPoint> teps = new ArrayList<TunnelEndPoint>();
+        for (Node ovsNode : ovsdbNodes) {
+            InetAddress tepIp = getTepIp(ovsNode);
+            NodeConnector tepNc = getTepNc(ovsNode);
+            if (tepIp == null || tepNc == null){
+                log.error("loadTunnels: cannot determine TEP NC {} or IP {}. skipping to next OVSDB Node", tepNc, tepIp);
+                continue;
+            }
+            TunnelEndPoint tep = new TunnelEndPoint(tepNc, tepIp, segmentationId);
+            if (!teps.contains(tep)) teps.add(tep);
+        }
+        return teps;
+    }
+
+    private InetAddress getTepIp(Node ovsNode) {
+        Map<String, Row> rows = ovsdbConfigService.getRows(ovsNode, ovsdbConfigService.getTableName(ovsNode, OpenVSwitch.class));
+        if (rows == null) return null;
+        OpenVSwitch openVSwitch = ovsdbConfigService.getTypedRow(ovsNode, OpenVSwitch.class, rows.values().iterator().next());
+        Map<String, String> otherConfigs = openVSwitch.getOtherConfigColumn().getData();
+        if(otherConfigs == null){
+            log.error("getTepIp: ovsNode {} has no otherConfigs in Open_vSwitch table", ovsNode);
+            return null;
+        }
+        String localIp = otherConfigs.get("local_ip");
+        if (localIp == null){
+            log.error("getTepIp: ovsNode {} has no TEP IP configuration", ovsNode);
+            return null;
+        }
+        InetAddress address = null;
+        try {
+            address = InetAddress.getByName(localIp);
+        } catch (UnknownHostException e) {
+            log.error("getTepIp: ", e);
+        }
+        return address;
+    }
+
+    private NodeConnector getTepNc(Node ovsNode) {
+        NodeConnector tepNc = null;
+        Map<String, Row> rows = ovsdbConfigService.getRows(ovsNode, ovsdbConfigService.getTableName(ovsNode, Interface.class));
+        if (rows == null) return null;
+        for (String rowUuid : rows.keySet()) {
+            Interface intf = ovsdbConfigService.getTypedRow(ovsNode, Interface.class, rows.get(rowUuid));
+            if (intf != null && intf.getTypeColumn().getData() != null &&
+                    (intf.getTypeColumn().getData().equalsIgnoreCase(NetworkHandler.NETWORK_TYPE_GRE) ||
+                            intf.getTypeColumn().getData().equalsIgnoreCase(NetworkHandler.NETWORK_TYPE_VXLAN))){
+                // Found TEP Interface
+                Node ofNode = getOpenFlowNode(ovsNode, rowUuid, intf);
+
+                if (intf.getOpenFlowPortColumn().getData() == null || intf.getOpenFlowPortColumn().getData().size() == 0){
+                    log.trace("getTepNc: interface OFPort is not present.");
+                    return null;
+                }
+                // FIXME: This can be terribly bad, NodeConnector only accepts Short values, while OVSDB stores them in Long
+                Short ofPortShort = new Short(((Long)intf.getOpenFlowPortColumn().getData().toArray()[0]).shortValue());
+                if(ofPortShort <= 0){
+                    log.trace("getTepNc: received OpenFlowPort {} is not valid. srcNodeConnctor is not available. Returning", ofPortShort);
+                    return null;
+                }
+                tepNc = NodeConnector.fromStringNoNode(NodeConnector.NodeConnectorIDType.OPENFLOW, ofPortShort.toString(), ofNode);
+                return tepNc;
+            }
+        }
+        log.error("getTepNc: can not find TEP NodeConnector for ovsNode {}", ovsNode);
+        return null;
+    }
+
+    private List<Node> findOvsdbNodes(List<NeutronPort> neutronPorts) {
+        List<Node> ovsdbNodes = new ArrayList<Node>();
+        IConnectionServiceInternal connectionService = (IConnectionServiceInternal)ServiceHelper.getGlobalInstance(IConnectionServiceInternal.class, this);
+        List<Node> nodes = connectionService.getNodes();
+        boolean nodeAdded = false;
+        for (Node node : nodes) {
+            if (node.getType().equalsIgnoreCase("OVS")){
+                nodeAdded = false;
+                Map<String, Row> rows = ovsdbConfigService.getRows(node, ovsdbConfigService.getTableName(node, Interface.class));
+                if (rows == null) continue;
+                for (String rowUuid : rows.keySet()) {
+                    Interface intf = ovsdbConfigService.getTypedRow(node, Interface.class, rows.get(rowUuid));
+                    for (NeutronPort neutronPort : neutronPorts) {
+                        if (neutronPort.getPortUUID().equalsIgnoreCase(intf.getExternalIdsColumn().getData().get(ITenantNetworkManager.EXTERNAL_ID_INTERFACE_ID))){
+                            if (!ovsdbNodes.contains(node)) {
+                                ovsdbNodes.add(node);
+                                nodeAdded = true;
+                                break;
+                            }
+                        }
+                    }
+                    if(nodeAdded) break;
+                }
+            }
+        }
+        return ovsdbNodes;
     }
 
     private synchronized void updateTunnelsFromInterfaceEvent(Node node, String uuid, Row intfRow, Row oldIntfRow, Object context, Action action) {
@@ -439,11 +565,11 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
                     log.debug("getOpenFlowNode: OpenFlow Bridge is found: bridge {}, port {}, interface {}", bridge.getUuid(), port.getName(), intf.getName());
                     Set<String> dpids = bridge.getDatapathIdColumn().getData();
                     if (dpids == null || dpids.size() ==  0) return null;
-//                    Long dpidLong = Long.valueOf(HexEncode.stringToLong((String)dpids.toArray()[0]));
-                    BigInteger dpid = OpenFlowUtils.getDpId((String)dpids.toArray()[0]);
+                    Long dpidLong = Long.valueOf(HexEncode.stringToLong((String)dpids.toArray()[0]));
+//                    BigInteger dpid = OpenFlowUtils.getDpId((String)dpids.toArray()[0]);
 
                     try {
-                        ofNode = new Node(Node.NodeIDType.OPENFLOW, dpid);
+                        ofNode = new Node(Node.NodeIDType.OPENFLOW, dpidLong);
                         log.trace("getOpenFlowNode: found ofNode {} for intfUuid {}, intf {}", ofNode, intfUuid, intf.getName());
                         return ofNode;
                     } catch (ConstructionException e) {
