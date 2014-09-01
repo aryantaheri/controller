@@ -27,11 +27,11 @@ import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.opendaylight.controller.netconf.auth.AuthProvider;
 import org.opendaylight.controller.netconf.netty.EchoClientHandler.State;
 import org.opendaylight.controller.netconf.nettyutil.handler.ssh.authentication.LoginPassword;
-import org.opendaylight.controller.netconf.nettyutil.handler.ssh.client.SshHandler;
+import org.opendaylight.controller.netconf.nettyutil.handler.ssh.client.AsyncSshHandler;
 import org.opendaylight.controller.netconf.ssh.NetconfSSHServer;
-import org.opendaylight.controller.netconf.ssh.authentication.AuthProvider;
 import org.opendaylight.controller.netconf.ssh.authentication.PEMGenerator;
 import org.opendaylight.controller.netconf.util.osgi.NetconfConfigUtil;
 import org.slf4j.Logger;
@@ -59,10 +59,12 @@ public class SSHTest {
     public void test() throws Exception {
         new Thread(new EchoServer(), "EchoServer").start();
         AuthProvider authProvider = mock(AuthProvider.class);
-        doReturn(PEMGenerator.generate().toCharArray()).when(authProvider).getPEMAsCharArray();
         doReturn(true).when(authProvider).authenticated(anyString(), anyString());
+        doReturn("auth").when(authProvider).toString();
+
         NetconfSSHServer netconfSSHServer = NetconfSSHServer.start(10831, NetconfConfigUtil.getNetconfLocalAddress(),
-                authProvider, new NioEventLoopGroup());
+                new NioEventLoopGroup(), PEMGenerator.generate().toCharArray());
+        netconfSSHServer.setAuthProvider(authProvider);
 
         InetSocketAddress address = netconfSSHServer.getLocalSocketAddress();
         final EchoClientHandler echoClientHandler = connectClient(address);
@@ -93,7 +95,7 @@ public class SSHTest {
         ChannelInitializer<NioSocketChannel> channelInitializer = new ChannelInitializer<NioSocketChannel>() {
             @Override
             public void initChannel(NioSocketChannel ch) throws Exception {
-                ch.pipeline().addFirst(SshHandler.createForNetconfSubsystem(new LoginPassword("a", "a")));
+                ch.pipeline().addFirst(AsyncSshHandler.createForNetconfSubsystem(new LoginPassword("a", "a")));
                 ch.pipeline().addLast(echoClientHandler);
             }
         };
@@ -117,7 +119,7 @@ public class SSHTest {
             Thread.sleep(100);
         }
         assertFalse(echoClientHandler.isConnected());
-        assertEquals(State.FAILED_TO_CONNECT, echoClientHandler.getState());
+        assertEquals(State.CONNECTION_CLOSED, echoClientHandler.getState());
     }
 
 }

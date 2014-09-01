@@ -16,7 +16,6 @@ import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.opendaylight.controller.md.sal.binding.impl.AbstractForwardedDataBroker;
-import org.opendaylight.controller.md.sal.common.api.data.DataCommitHandler;
 import org.opendaylight.controller.md.sal.common.api.routing.RouteChangePublisher;
 import org.opendaylight.controller.sal.binding.api.NotificationProviderService;
 import org.opendaylight.controller.sal.binding.api.RpcProviderRegistry;
@@ -47,7 +46,7 @@ public class BindingIndependentConnector implements //
         AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(BindingIndependentConnector.class);
-    private static final org.opendaylight.yangtools.yang.data.api.InstanceIdentifier ROOT_BI = org.opendaylight.yangtools.yang.data.api.InstanceIdentifier
+    private static final org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier ROOT_BI = org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier
             .builder().toInstance();
 
     private BindingIndependentMappingService mappingService;
@@ -59,7 +58,7 @@ public class BindingIndependentConnector implements //
     private final BindingToDomCommitHandler bindingToDomCommitHandler;
     private final DomToBindingCommitHandler domToBindingCommitHandler;
 
-    private Registration<DataCommitHandler<org.opendaylight.yangtools.yang.data.api.InstanceIdentifier, CompositeNode>> biCommitHandlerRegistration;
+    private Registration biCommitHandlerRegistration;
     private RpcProvisionRegistry biRpcRegistry;
     private RpcProviderRegistry baRpcRegistry;
 
@@ -89,7 +88,7 @@ public class BindingIndependentConnector implements //
     @Override
     public DataObject readOperationalData(final InstanceIdentifier<? extends DataObject> path) {
         try {
-            org.opendaylight.yangtools.yang.data.api.InstanceIdentifier biPath = mappingService.toDataDom(path);
+            org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier biPath = mappingService.toDataDom(path);
             CompositeNode result = biDataService.readOperationalData(biPath);
             return potentialAugmentationRead(path, biPath, result);
         } catch (DeserializationException e) {
@@ -98,7 +97,7 @@ public class BindingIndependentConnector implements //
     }
 
     private DataObject potentialAugmentationRead(InstanceIdentifier<? extends DataObject> path,
-            final org.opendaylight.yangtools.yang.data.api.InstanceIdentifier biPath, final CompositeNode result)
+            final org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier biPath, final CompositeNode result)
             throws DeserializationException {
         Class<? extends DataObject> targetType = path.getTargetType();
         if (Augmentation.class.isAssignableFrom(targetType)) {
@@ -115,7 +114,7 @@ public class BindingIndependentConnector implements //
     @Override
     public DataObject readConfigurationData(final InstanceIdentifier<? extends DataObject> path) {
         try {
-            org.opendaylight.yangtools.yang.data.api.InstanceIdentifier biPath = mappingService.toDataDom(path);
+            org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier biPath = mappingService.toDataDom(path);
             CompositeNode result = biDataService.readConfigurationData(biPath);
             return potentialAugmentationRead(path, biPath, result);
         } catch (DeserializationException e) {

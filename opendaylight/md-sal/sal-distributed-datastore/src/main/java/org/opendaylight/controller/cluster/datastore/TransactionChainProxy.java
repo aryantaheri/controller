@@ -14,36 +14,32 @@ import org.opendaylight.controller.sal.core.spi.data.DOMStoreReadWriteTransactio
 import org.opendaylight.controller.sal.core.spi.data.DOMStoreTransactionChain;
 import org.opendaylight.controller.sal.core.spi.data.DOMStoreWriteTransaction;
 
-import java.util.concurrent.ExecutorService;
-
 /**
  * TransactionChainProxy acts as a proxy for a DOMStoreTransactionChain created on a remote shard
  */
 public class TransactionChainProxy implements DOMStoreTransactionChain{
     private final ActorContext actorContext;
-    private final ExecutorService transactionExecutor;
 
-    public TransactionChainProxy(ActorContext actorContext, ExecutorService transactionExecutor) {
+    public TransactionChainProxy(ActorContext actorContext) {
         this.actorContext = actorContext;
-        this.transactionExecutor = transactionExecutor;
     }
 
     @Override
     public DOMStoreReadTransaction newReadOnlyTransaction() {
         return new TransactionProxy(actorContext,
-            TransactionProxy.TransactionType.READ_ONLY, transactionExecutor);
+            TransactionProxy.TransactionType.READ_ONLY);
     }
 
     @Override
     public DOMStoreReadWriteTransaction newReadWriteTransaction() {
         return new TransactionProxy(actorContext,
-            TransactionProxy.TransactionType.WRITE_ONLY, transactionExecutor);
+            TransactionProxy.TransactionType.READ_WRITE);
     }
 
     @Override
     public DOMStoreWriteTransaction newWriteOnlyTransaction() {
         return new TransactionProxy(actorContext,
-            TransactionProxy.TransactionType.READ_WRITE, transactionExecutor);
+            TransactionProxy.TransactionType.WRITE_ONLY);
     }
 
     @Override

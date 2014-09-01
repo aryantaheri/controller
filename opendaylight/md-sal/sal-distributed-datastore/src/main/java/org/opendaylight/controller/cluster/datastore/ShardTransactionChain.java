@@ -11,12 +11,13 @@ package org.opendaylight.controller.cluster.datastore;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 import akka.japi.Creator;
+
 import org.opendaylight.controller.cluster.datastore.messages.CloseTransactionChain;
 import org.opendaylight.controller.cluster.datastore.messages.CloseTransactionChainReply;
 import org.opendaylight.controller.cluster.datastore.messages.CreateTransaction;
 import org.opendaylight.controller.cluster.datastore.messages.CreateTransactionReply;
-import org.opendaylight.controller.sal.core.spi.data.DOMStoreReadWriteTransaction;
 import org.opendaylight.controller.sal.core.spi.data.DOMStoreTransactionChain;
+import org.opendaylight.yangtools.yang.model.api.SchemaContext;
 
 /**
  * The ShardTransactionChain Actor represents a remote TransactionChain
@@ -24,39 +25,87 @@ import org.opendaylight.controller.sal.core.spi.data.DOMStoreTransactionChain;
 public class ShardTransactionChain extends AbstractUntypedActor {
 
     private final DOMStoreTransactionChain chain;
+    private final ShardContext shardContext;
+    private final SchemaContext schemaContext;
 
-    public ShardTransactionChain(DOMStoreTransactionChain chain) {
+    public ShardTransactionChain(DOMStoreTransactionChain chain, SchemaContext schemaContext,
+            ShardContext shardContext) {
         this.chain = chain;
+        this.shardContext = shardContext;
+        this.schemaContext = schemaContext;
     }
 
     @Override
     public void handleReceive(Object message) throws Exception {
-        if (message instanceof CreateTransaction) {
-            CreateTransaction createTransaction = (CreateTransaction) message;
+        if (message.getClass().equals(CreateTransaction.SERIALIZABLE_CLASS)) {
+            CreateTransaction createTransaction = CreateTransaction.fromSerializable( message);
             createTransaction(createTransaction);
-        } else if (message instanceof CloseTransactionChain) {
+        } else if (message.getClass().equals(CloseTransactionChain.SERIALIZABLE_CLASS)) {
             chain.close();
-            getSender().tell(new CloseTransactionChainReply(), getSelf());
+            getSender().tell(new CloseTransactionChainReply().toSerializable(), getSelf());
+        }else{
+            unknownMessage(message);
+        }
+    }
+
+    private ActorRef getShardActor(){
+        return getContext().parent();
+    }
+
+    private ActorRef createTypedTransactionActor(CreateTransaction createTransaction,
+            String transactionId) {
+        if(createTransaction.getTransactionType() ==
+                TransactionProxy.TransactionType.READ_ONLY.ordinal()) {
+            return getContext().actorOf(
+                    ShardTransaction.props( chain.newReadOnlyTransaction(), getShardActor(),
+                            schemaContext, shardContext), transactionId);
+        } else if (createTransaction.getTransactionType() ==
+                TransactionProxy.TransactionType.READ_WRITE.ordinal()) {
+            return getContext().actorOf(
+                    ShardTransaction.props( chain.newReadWriteTransaction(), getShardActor(),
+                            schemaContext, shardContext), transactionId);
+        } else if (createTransaction.getTransactionType() ==
+                TransactionProxy.TransactionType.WRITE_ONLY.ordinal()) {
+            return getContext().actorOf(
+                    ShardTransaction.props( chain.newWriteOnlyTransaction(), getShardActor(),
+                            schemaContext, shardContext), transactionId);
+        } else {
+            throw new IllegalArgumentException (
+                    "CreateTransaction message has unidentified transaction type=" +
+                             createTransaction.getTransactionType());
         }
     }
 
     private void createTransaction(CreateTransaction createTransaction) {
-        DOMStoreReadWriteTransaction transaction =
-            chain.newReadWriteTransaction();
-        ActorRef transactionActor = getContext().actorOf(ShardTransaction
-            .props(chain, transaction, getContext().parent()), "shard-" + createTransaction.getTransactionId());
+
+        ActorRef transactionActor = createTypedTransactionActor(createTransaction, "shard-" + createTransaction.getTransactionId());
         getSender()
-            .tell(new CreateTransactionReply(transactionActor.path(), createTransaction.getTransactionId()),
+            .tell(new CreateTransactionReply(transactionActor.path().toString(),createTransaction.getTransactionId()).toSerializable(),
                 getSelf());
     }
 
-    public static Props props(final DOMStoreTransactionChain chain) {
-        return Props.create(new Creator<ShardTransactionChain>() {
+    public static Props props(DOMStoreTransactionChain chain, SchemaContext schemaContext,
+            ShardContext shardContext) {
+        return Props.create(new ShardTransactionChainCreator(chain, schemaContext, shardContext));
+    }
 
-            @Override
-            public ShardTransactionChain create() throws Exception {
-                return new ShardTransactionChain(chain);
-            }
-        });
+    private static class ShardTransactionChainCreator implements Creator<ShardTransactionChain> {
+        private static final long serialVersionUID = 1L;
+
+        final DOMStoreTransactionChain chain;
+        final ShardContext shardContext;
+        final SchemaContext schemaContext;
+
+        ShardTransactionChainCreator(DOMStoreTransactionChain chain, SchemaContext schemaContext,
+                ShardContext shardContext) {
+            this.chain = chain;
+            this.shardContext = shardContext;
+            this.schemaContext = schemaContext;
+        }
+
+        @Override
+        public ShardTransactionChain create() throws Exception {
+            return new ShardTransactionChain(chain, schemaContext, shardContext);
+        }
     }
 }

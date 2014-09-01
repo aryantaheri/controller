@@ -8,13 +8,13 @@
 
 package org.opendaylight.controller.netconf.nettyutil.handler.ssh.authentication;
 
-import ch.ethz.ssh2.Connection;
-
 import java.io.IOException;
+import org.apache.sshd.ClientSession;
+import org.apache.sshd.client.future.AuthFuture;
 
 /**
  * Class Providing username/password authentication option to
- * {@link org.opendaylight.controller.netconf.nettyutil.handler.ssh.client.SshHandler}
+ * {@link org.opendaylight.controller.netconf.nettyutil.handler.ssh.client.AsyncSshHandler}
  */
 public class LoginPassword extends AuthenticationHandler {
     private final String username;
@@ -26,11 +26,13 @@ public class LoginPassword extends AuthenticationHandler {
     }
 
     @Override
-    public void authenticate(Connection connection) throws IOException {
-        boolean isAuthenticated = connection.authenticateWithPassword(username, password);
+    public String getUsername() {
+        return username;
+    }
 
-        if (!isAuthenticated) {
-            throw new IOException("Authentication failed.");
-        }
+    @Override
+    public AuthFuture authenticate(final ClientSession session) throws IOException {
+        session.addPasswordIdentity(password);
+        return session.auth();
     }
 }

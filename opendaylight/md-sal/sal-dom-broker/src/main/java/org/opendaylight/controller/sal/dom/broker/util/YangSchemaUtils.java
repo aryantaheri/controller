@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.Set;
 
 import org.opendaylight.yangtools.yang.common.QName;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.PathArgument;
 import org.opendaylight.yangtools.yang.model.api.AugmentationSchema;
 import org.opendaylight.yangtools.yang.model.api.ChoiceCaseNode;
 import org.opendaylight.yangtools.yang.model.api.ChoiceNode;
@@ -54,7 +54,7 @@ public final class YangSchemaUtils {
         throw new UnsupportedOperationException("Utility class.");
     }
 
-    public static DataSchemaNode getSchemaNode(final SchemaContext schema,final InstanceIdentifier path) {
+    public static DataSchemaNode getSchemaNode(final SchemaContext schema,final YangInstanceIdentifier path) {
         checkArgument(schema != null,"YANG Schema must not be null.");
         checkArgument(path != null,"Path must not be null.");
         return getSchemaNode(schema, FluentIterable.from(path.getPathArguments()).transform(QNAME_FROM_PATH_ARGUMENT));
@@ -92,8 +92,7 @@ public final class YangSchemaUtils {
     }
 
     private static DataSchemaNode searchInChoices(final DataNodeContainer node, final QName arg) {
-        Set<DataSchemaNode> children = node.getChildNodes();
-        for (DataSchemaNode child : children) {
+        for (DataSchemaNode child : node.getChildNodes()) {
             if (child instanceof ChoiceNode) {
                 ChoiceNode choiceNode = (ChoiceNode) child;
                 DataSchemaNode potential = searchInCases(choiceNode, arg);

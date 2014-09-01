@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
 import org.junit.Test;
 import org.opendaylight.controller.md.sal.common.api.TransactionStatus;
 import org.opendaylight.controller.md.sal.common.api.data.DataChangeEvent;
@@ -64,8 +63,8 @@ public class MultipleAugmentationPutsTest extends AbstractDataServiceTest implem
     private static final InstanceIdentifier<Node> NODE_INSTANCE_ID_BA =
             NODES_INSTANCE_ID_BA.child(Node.class, NODE_KEY);
 
-    private static final org.opendaylight.yangtools.yang.data.api.InstanceIdentifier NODE_INSTANCE_ID_BI = //
-    org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.builder() //
+    private static final org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier NODE_INSTANCE_ID_BI = //
+    org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.builder() //
             .node(Nodes.QNAME) //
             .nodeWithKey(Node.QNAME, NODE_KEY_BI) //
             .toInstance();
@@ -76,7 +75,7 @@ public class MultipleAugmentationPutsTest extends AbstractDataServiceTest implem
      *
      * @throws Exception
      */
-    @Test( timeout = 15000)
+    @Test()
     public void testAugmentSerialization() throws Exception {
 
         baDataService.registerDataChangeListener(NODES_INSTANCE_ID_BA, this);
@@ -122,7 +121,7 @@ public class MultipleAugmentationPutsTest extends AbstractDataServiceTest implem
         testNodeRemove();
     }
 
-    private <T extends Augmentation<Node>> Node createTestNode(Class<T> augmentationClass, T augmentation) {
+    private <T extends Augmentation<Node>> Node createTestNode(final Class<T> augmentationClass, final T augmentation) {
         NodeBuilder nodeBuilder = new NodeBuilder();
         nodeBuilder.setId(new NodeId(NODE_ID));
         nodeBuilder.setKey(NODE_KEY);
@@ -130,7 +129,7 @@ public class MultipleAugmentationPutsTest extends AbstractDataServiceTest implem
         return nodeBuilder.build();
     }
 
-    private DataModificationTransaction commitNodeAndVerifyTransaction(Node original) throws Exception {
+    private DataModificationTransaction commitNodeAndVerifyTransaction(final Node original) throws Exception {
         DataModificationTransaction transaction = baDataService.beginTransaction();
         transaction.putOperationalData(NODE_INSTANCE_ID_BA, original);
         RpcResult<TransactionStatus> result = transaction.commit().get();
@@ -148,7 +147,7 @@ public class MultipleAugmentationPutsTest extends AbstractDataServiceTest implem
         assertNull(node);
     }
 
-    private AugmentationVerifier<Node> verifyNode(Nodes nodes, Node original) {
+    private AugmentationVerifier<Node> verifyNode(final Nodes nodes, final Node original) {
         assertNotNull(nodes);
         assertNotNull(nodes.getNode());
         assertEquals(1, nodes.getNode().size());
@@ -158,7 +157,7 @@ public class MultipleAugmentationPutsTest extends AbstractDataServiceTest implem
         return new AugmentationVerifier<Node>(readedNode);
     }
 
-    private void assertBindingIndependentVersion(org.opendaylight.yangtools.yang.data.api.InstanceIdentifier nodeId) {
+    private void assertBindingIndependentVersion(final org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier nodeId) {
         CompositeNode node = biDataService.readOperationalData(nodeId);
         assertNotNull(node);
     }
@@ -171,7 +170,7 @@ public class MultipleAugmentationPutsTest extends AbstractDataServiceTest implem
         return nodeMeterStatistics(10, false);
     }
 
-    private NodeMeterStatistics nodeMeterStatistics(int count, boolean setDuration) {
+    private NodeMeterStatistics nodeMeterStatistics(final int count, final boolean setDuration) {
         NodeMeterStatisticsBuilder nmsb = new NodeMeterStatisticsBuilder();
         MeterStatisticsBuilder meterStats = new MeterStatisticsBuilder();
 
@@ -207,7 +206,7 @@ public class MultipleAugmentationPutsTest extends AbstractDataServiceTest implem
     }
 
     @Override
-    public void onDataChanged(DataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
+    public void onDataChanged(final DataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
         receivedChangeEvent = change;
     }
 

@@ -8,23 +8,38 @@
 
 package org.opendaylight.controller.cluster.datastore.messages;
 
-import akka.actor.ActorPath;
+import org.opendaylight.controller.protobuff.messages.transaction.ShardTransactionMessages;
 
-public class CreateTransactionReply {
-    private final ActorPath transactionPath;
+public class CreateTransactionReply implements SerializableMessage {
+
+    public static final Class SERIALIZABLE_CLASS = ShardTransactionMessages.CreateTransactionReply.class;
+    private final String transactionPath;
     private final String transactionId;
 
-    public CreateTransactionReply(ActorPath transactionPath,
+    public CreateTransactionReply(String transactionPath,
         String transactionId) {
         this.transactionPath = transactionPath;
         this.transactionId = transactionId;
     }
 
-    public ActorPath getTransactionPath() {
+    public String getTransactionPath() {
         return transactionPath;
     }
 
     public String getTransactionId() {
         return transactionId;
     }
+
+    public Object toSerializable(){
+        return ShardTransactionMessages.CreateTransactionReply.newBuilder()
+            .setTransactionActorPath(transactionPath)
+            .setTransactionId(transactionId)
+            .build();
+    }
+
+    public static CreateTransactionReply fromSerializable(Object serializable){
+        ShardTransactionMessages.CreateTransactionReply o = (ShardTransactionMessages.CreateTransactionReply) serializable;
+        return new CreateTransactionReply(o.getTransactionActorPath(), o.getTransactionId());
+    }
+
 }

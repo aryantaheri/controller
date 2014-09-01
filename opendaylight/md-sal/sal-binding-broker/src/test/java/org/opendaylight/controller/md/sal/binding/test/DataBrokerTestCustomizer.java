@@ -7,9 +7,12 @@
  */
 package org.opendaylight.controller.md.sal.binding.test;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import javassist.ClassPool;
-
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.controller.md.sal.binding.impl.BindingToNormalizedNodeCodec;
 import org.opendaylight.controller.md.sal.binding.impl.ForwardedBindingDataBroker;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.controller.md.sal.dom.api.DOMDataBroker;
@@ -18,13 +21,13 @@ import org.opendaylight.controller.md.sal.dom.store.impl.InMemoryDOMDataStore;
 import org.opendaylight.controller.sal.binding.test.util.MockSchemaService;
 import org.opendaylight.controller.sal.core.api.model.SchemaService;
 import org.opendaylight.controller.sal.core.spi.data.DOMStore;
+import org.opendaylight.yangtools.binding.data.codec.gen.impl.DataObjectSerializerGenerator;
+import org.opendaylight.yangtools.binding.data.codec.gen.impl.StreamWriterGenerator;
+import org.opendaylight.yangtools.binding.data.codec.impl.BindingNormalizedNodeCodecRegistry;
+import org.opendaylight.yangtools.sal.binding.generator.impl.GeneratedClassLoadingStrategy;
 import org.opendaylight.yangtools.sal.binding.generator.impl.RuntimeGeneratedMappingServiceImpl;
-import org.opendaylight.yangtools.yang.data.impl.codec.BindingIndependentMappingService;
+import org.opendaylight.yangtools.sal.binding.generator.util.JavassistUtils;
 import org.opendaylight.yangtools.yang.model.api.SchemaContext;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 
 public class DataBrokerTestCustomizer {
 
@@ -32,6 +35,7 @@ public class DataBrokerTestCustomizer {
     private final RuntimeGeneratedMappingServiceImpl mappingService;
     private final MockSchemaService schemaService;
     private ImmutableMap<LogicalDatastoreType, DOMStore> datastores;
+    private final BindingToNormalizedNodeCodec bindingToNormalized ;
 
     public ImmutableMap<LogicalDatastoreType, DOMStore> createDatastores() {
         return ImmutableMap.<LogicalDatastoreType, DOMStore>builder()
@@ -42,18 +46,26 @@ public class DataBrokerTestCustomizer {
 
     public DataBrokerTestCustomizer() {
         schemaService = new MockSchemaService();
-        mappingService = new RuntimeGeneratedMappingServiceImpl(ClassPool.getDefault());
+        ClassPool pool = ClassPool.getDefault();
+        mappingService = new RuntimeGeneratedMappingServiceImpl(pool);
+        DataObjectSerializerGenerator generator = StreamWriterGenerator.create(JavassistUtils.forClassPool(pool));
+        BindingNormalizedNodeCodecRegistry codecRegistry = new BindingNormalizedNodeCodecRegistry(generator);
+        GeneratedClassLoadingStrategy loading = GeneratedClassLoadingStrategy.getTCCLClassLoadingStrategy();
+        bindingToNormalized = new BindingToNormalizedNodeCodec(loading, mappingService, codecRegistry);
+        schemaService.registerSchemaContextListener(bindingToNormalized);
     }
 
     public DOMStore createConfigurationDatastore() {
-        InMemoryDOMDataStore store = new InMemoryDOMDataStore("CFG", MoreExecutors.sameThreadExecutor());
-        schemaService.registerSchemaServiceListener(store);
+        InMemoryDOMDataStore store = new InMemoryDOMDataStore("CFG",
+                MoreExecutors.sameThreadExecutor(), MoreExecutors.sameThreadExecutor());
+        schemaService.registerSchemaContextListener(store);
         return store;
     }
 
     public DOMStore createOperationalDatastore() {
-        InMemoryDOMDataStore store = new InMemoryDOMDataStore("OPER", MoreExecutors.sameThreadExecutor());
-        schemaService.registerSchemaServiceListener(store);
+        InMemoryDOMDataStore store = new InMemoryDOMDataStore("OPER",
+                MoreExecutors.sameThreadExecutor(), MoreExecutors.sameThreadExecutor());
+        schemaService.registerSchemaContextListener(store);
         return store;
     }
 
@@ -66,15 +78,15 @@ public class DataBrokerTestCustomizer {
     }
 
     public DataBroker createDataBroker() {
-        return new ForwardedBindingDataBroker(getDOMDataBroker(), getMappingService(), getSchemaService());
+        return new ForwardedBindingDataBroker(getDOMDataBroker(), bindingToNormalized, schemaService );
     }
 
-    private SchemaService getSchemaService() {
+    public BindingToNormalizedNodeCodec getBindingToNormalized() {
+        return bindingToNormalized;
+    }
+
+    public SchemaService getSchemaService() {
         return schemaService;
-    }
-
-    private BindingIndependentMappingService getMappingService() {
-        return mappingService;
     }
 
     private DOMDataBroker getDOMDataBroker() {
@@ -84,8 +96,8 @@ public class DataBrokerTestCustomizer {
         return domDataBroker;
     }
 
-    private ImmutableMap<LogicalDatastoreType, DOMStore> getDatastores() {
-        if(datastores == null) {
+    private synchronized ImmutableMap<LogicalDatastoreType, DOMStore> getDatastores() {
+        if (datastores == null) {
             datastores = createDatastores();
         }
         return datastores;

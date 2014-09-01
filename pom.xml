@@ -28,6 +28,7 @@
     <module>opendaylight/forwardingrulesmanager/implementation</module>
     <module>opendaylight/hosttracker/api</module>
     <module>opendaylight/hosttracker/implementation</module>
+    <module>opendaylight/hosttracker/shell</module>
     <module>opendaylight/hosttracker_new/api</module>
     <module>opendaylight/hosttracker_new/implementation</module>
     <module>opendaylight/containermanager/api</module>
@@ -39,11 +40,13 @@
     <module>opendaylight/statisticsmanager/api</module>
     <module>opendaylight/statisticsmanager/implementation</module>
     <module>opendaylight/topologymanager/implementation</module>
+    <module>opendaylight/topologymanager/shell</module>
     <module>opendaylight/usermanager/api</module>
     <module>opendaylight/usermanager/implementation</module>
     <module>opendaylight/connectionmanager/api</module>
     <module>opendaylight/connectionmanager/implementation</module>
     <module>opendaylight/security</module>
+    <module>opendaylight/karaf-tomcat-security</module>
 
     <!-- third-parties uncomment them if you need snapshot version of it -->
     <!-- <module>third-party/openflowj</module> -->
@@ -124,16 +127,18 @@
     <module>opendaylight/commons/parent</module>
     <module>opendaylight/commons/logback_settings</module>
     <module>opendaylight/commons/filter-valve</module>
+    <module>opendaylight/commons/liblldp</module>
 
     <!-- Karaf Distribution -->
-    <module>features/base</module>
-    <module>features/controller</module>
-    <module>features/adsal</module>
-    <module>features/extras</module>
     <module>opendaylight/dummy-console</module>
     <module>opendaylight/karaf-branding</module>
+    <module>opendaylight/distribution/opendaylight-karaf-empty</module>
     <module>opendaylight/distribution/opendaylight-karaf</module>
+    <module>opendaylight/distribution/opendaylight-karaf-resources</module>
     <module>features</module>
+
+    <!-- archetypes -->
+    <module>opendaylight/archetypes</module>
   </modules>
   <scm>
     <connection>scm:git:ssh://git.opendaylight.org:29418/controller.git</connection>

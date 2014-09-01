@@ -6,82 +6,112 @@ import akka.testkit.JavaTestKit;
 import org.junit.Test;
 import org.opendaylight.controller.cluster.datastore.messages.DataChanged;
 import org.opendaylight.controller.cluster.datastore.messages.DataChangedReply;
+import org.opendaylight.controller.cluster.datastore.messages.EnableNotification;
+import org.opendaylight.controller.md.cluster.datastore.model.CompositeModel;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeListener;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
 import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class DataChangeListenerTest extends AbstractActorTest {
 
-    private static class MockDataChangedEvent implements AsyncDataChangeEvent<InstanceIdentifier, NormalizedNode<?, ?>> {
+    private static class MockDataChangedEvent implements AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>> {
+       Map<YangInstanceIdentifier,NormalizedNode<?,?>> createdData = new HashMap<>();
+       Map<YangInstanceIdentifier,NormalizedNode<?,?>> updatedData = new HashMap<>();
+       Map<YangInstanceIdentifier,NormalizedNode<?,?>> originalData = new HashMap<>();
+
+
 
         @Override
-        public Map<InstanceIdentifier, NormalizedNode<?, ?>> getCreatedData() {
-            throw new UnsupportedOperationException("getCreatedData");
+        public Map<YangInstanceIdentifier, NormalizedNode<?, ?>> getCreatedData() {
+            createdData.put(CompositeModel.FAMILY_PATH, CompositeModel.createFamily());
+            return createdData;
         }
 
         @Override
-        public Map<InstanceIdentifier, NormalizedNode<?, ?>> getUpdatedData() {
-            throw new UnsupportedOperationException("getUpdatedData");
-        }
+        public Map<YangInstanceIdentifier, NormalizedNode<?, ?>> getUpdatedData() {
+            updatedData.put(CompositeModel.FAMILY_PATH, CompositeModel.createFamily());
+            return updatedData;
 
-        @Override public Set<InstanceIdentifier> getRemovedPaths() {
-            throw new UnsupportedOperationException("getRemovedPaths");
         }
 
         @Override
-        public Map<InstanceIdentifier, ? extends NormalizedNode<?, ?>> getOriginalData() {
-            throw new UnsupportedOperationException("getOriginalData");
+        public Set<YangInstanceIdentifier> getRemovedPaths() {
+               Set<YangInstanceIdentifier>ids = new HashSet();
+               ids.add( CompositeModel.TEST_PATH);
+              return ids;
+        }
+
+        @Override
+        public Map<YangInstanceIdentifier, NormalizedNode<?, ?>> getOriginalData() {
+          originalData.put(CompositeModel.FAMILY_PATH, CompositeModel.createFamily());
+          return originalData;
         }
 
         @Override public NormalizedNode<?, ?> getOriginalSubtree() {
-            throw new UnsupportedOperationException("getOriginalSubtree");
+
+
+          return originalData.put(CompositeModel.FAMILY_PATH, CompositeModel.createFamily());
         }
 
         @Override public NormalizedNode<?, ?> getUpdatedSubtree() {
-            throw new UnsupportedOperationException("getUpdatedSubtree");
+
+          //fixme: need to have some valid data here
+          return originalData.put(CompositeModel.FAMILY_PATH, CompositeModel.createFamily());
         }
     }
 
-    private class MockDataChangeListener implements AsyncDataChangeListener<InstanceIdentifier, NormalizedNode<?, ?>> {
+    private class MockDataChangeListener implements AsyncDataChangeListener<YangInstanceIdentifier, NormalizedNode<?, ?>> {
         private boolean gotIt = false;
+        private   AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>> change;
 
         @Override public void onDataChanged(
-            AsyncDataChangeEvent<InstanceIdentifier, NormalizedNode<?, ?>> change) {
-            gotIt = true;
+            AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>> change) {
+            gotIt = true;this.change=change;
         }
 
         public boolean gotIt() {
             return gotIt;
         }
+        public  AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>> getChange(){
+          return change;
+        }
     }
 
     @Test
-    public void testDataChanged(){
+    public void testDataChangedWhenNotificationsAreEnabled(){
         new JavaTestKit(getSystem()) {{
             final MockDataChangeListener listener = new MockDataChangeListener();
             final Props props = DataChangeListener.props(listener);
             final ActorRef subject =
-                getSystem().actorOf(props, "testDataChanged");
+                getSystem().actorOf(props, "testDataChangedNotificationsEnabled");
 
             new Within(duration("1 seconds")) {
+                @Override
                 protected void run() {
 
+                    // Let the DataChangeListener know that notifications should
+                    // be enabled
+                    subject.tell(new EnableNotification(true), getRef());
+
                     subject.tell(
-                        new DataChanged(new MockDataChangedEvent()),
+                        new DataChanged(CompositeModel.createTestContext(),new MockDataChangedEvent()),
                         getRef());
 
-                    final Boolean out = new ExpectMsg<Boolean>("dataChanged") {
+                    final Boolean out = new ExpectMsg<Boolean>(duration("800 millis"), "dataChanged") {
                         // do not put code outside this method, will run afterwards
+                        @Override
                         protected Boolean match(Object in) {
-                            if (in instanceof DataChangedReply) {
-                                DataChangedReply reply =
-                                    (DataChangedReply) in;
+                            if (in != null && in.getClass().equals(DataChangedReply.class)) {
+
                                 return true;
                             } else {
                                 throw noMatch();
@@ -91,11 +121,32 @@ public class DataChangeListenerTest extends AbstractActorTest {
 
                     assertTrue(out);
                     assertTrue(listener.gotIt());
-                    // Will wait for the rest of the 3 seconds
+                    assertNotNull(listener.getChange().getCreatedData());
+
                     expectNoMsg();
                 }
+            };
+        }};
+    }
 
+    @Test
+    public void testDataChangedWhenNotificationsAreDisabled(){
+        new JavaTestKit(getSystem()) {{
+            final MockDataChangeListener listener = new MockDataChangeListener();
+            final Props props = DataChangeListener.props(listener);
+            final ActorRef subject =
+                getSystem().actorOf(props, "testDataChangedNotificationsDisabled");
 
+            new Within(duration("1 seconds")) {
+                @Override
+                protected void run() {
+
+                    subject.tell(
+                        new DataChanged(CompositeModel.createTestContext(),new MockDataChangedEvent()),
+                        getRef());
+
+                    expectNoMsg();
+                }
             };
         }};
     }

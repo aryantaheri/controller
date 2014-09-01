@@ -30,6 +30,8 @@ public class TestHelper {
                 mavenBundle(YANGTOOLS, "util").versionAsInProject(), // //
                 mavenBundle(YANGTOOLS, "yang-binding").versionAsInProject(), // //
                 mavenBundle(YANGTOOLS, "yang-common").versionAsInProject(), // //
+                mavenBundle(YANGTOOLS, "object-cache-api").versionAsInProject(), // //
+                mavenBundle(YANGTOOLS, "object-cache-guava").versionAsInProject(), // //
                 mavenBundle(CONTROLLER, "sal-common").versionAsInProject(), // //
                 mavenBundle(CONTROLLER, "sal-common-api").versionAsInProject(), // //
                 mavenBundle(CONTROLLER, "sal-common-impl").versionAsInProject(), // //
@@ -71,6 +73,7 @@ public class TestHelper {
                 mavenBundle(CONTROLLER, "netconf-client").versionAsInProject(), //
                 mavenBundle(CONTROLLER, "netconf-util").versionAsInProject(), //
                 mavenBundle(CONTROLLER, "netconf-netty-util").versionAsInProject(), //
+                mavenBundle("org.apache.sshd", "sshd-core").versionAsInProject(), //
                 mavenBundle("org.openexi", "nagasena").versionAsInProject(), //
                 mavenBundle("org.openexi", "nagasena-rta").versionAsInProject(), //
                 mavenBundle(CONTROLLER + ".thirdparty", "ganymed").versionAsInProject(), //
@@ -110,6 +113,7 @@ public class TestHelper {
                 mavenBundle(YANGTOOLS, "binding-generator-api").versionAsInProject(), mavenBundle(YANGTOOLS,
                         "binding-generator-spi").versionAsInProject(), //
                 mavenBundle(YANGTOOLS, "binding-generator-impl").versionAsInProject(),
+                mavenBundle(YANGTOOLS, "binding-data-codec").versionAsInProject(),
                 mavenBundle(YANGTOOLS + ".thirdparty", "antlr4-runtime-osgi-nohead").versionAsInProject(), // //
 
                 mavenBundle(CONTROLLER, "sal-core-api").versionAsInProject().update(), //

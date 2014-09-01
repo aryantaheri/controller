@@ -75,7 +75,7 @@ public class NeutronSubnet extends ConfigurationObject implements Serializable, 
      */
     List<NeutronPort> myPorts;
 
-    boolean gatewayIPAssigned;
+    Boolean gatewayIPAssigned;
 
     public NeutronSubnet() {
         myPorts = new ArrayList<NeutronPort>();
@@ -299,7 +299,7 @@ public class NeutronSubnet extends ConfigurationObject implements Serializable, 
             try {
                 SubnetUtils util = new SubnetUtils(cidr);
                 SubnetInfo info = util.getInfo();
-                if (gatewayIP == null) {
+                if (gatewayIP == null || ("").equals(gatewayIP)) {
                     gatewayIP = info.getLowAddress();
                 }
                 if (allocationPools.size() < 1) {
@@ -458,6 +458,10 @@ public class NeutronSubnet extends ConfigurationObject implements Serializable, 
 
     public void resetGatewayIPAllocated() {
         gatewayIPAssigned = false;
+    }
+
+    public Boolean getGatewayIPAllocated() {
+        return gatewayIPAssigned;
     }
 
     @Override

@@ -13,12 +13,13 @@ import com.google.common.base.Preconditions;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.activation.UnsupportedDataTypeException;
-import org.opendaylight.controller.sal.core.api.mount.MountInstance;
+import org.opendaylight.controller.md.sal.dom.api.DOMMountPoint;
 import org.opendaylight.controller.sal.restconf.impl.ControllerContext;
 import org.opendaylight.controller.sal.restconf.impl.IdentityValuesDTO;
 import org.opendaylight.controller.sal.restconf.impl.IdentityValuesDTO.IdentityValue;
@@ -26,7 +27,7 @@ import org.opendaylight.controller.sal.restconf.impl.IdentityValuesDTO.Predicate
 import org.opendaylight.controller.sal.restconf.impl.RestCodec;
 import org.opendaylight.yangtools.yang.common.QName;
 import org.opendaylight.yangtools.yang.data.api.CompositeNode;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
 import org.opendaylight.yangtools.yang.data.api.Node;
 import org.opendaylight.yangtools.yang.data.api.SimpleNode;
 import org.opendaylight.yangtools.yang.model.api.AnyXmlSchemaNode;
@@ -51,9 +52,9 @@ import org.slf4j.LoggerFactory;
 
 class JsonMapper {
     private static final Logger LOG = LoggerFactory.getLogger(JsonMapper.class);
-    private final MountInstance mountPoint;
+    private final DOMMountPoint mountPoint;
 
-    public JsonMapper(final MountInstance mountPoint) {
+    public JsonMapper(final DOMMountPoint mountPoint) {
         this.mountPoint = mountPoint;
     }
 
@@ -83,7 +84,7 @@ class JsonMapper {
 
         final Set<QName> foundLists = new HashSet<>();
 
-        Set<DataSchemaNode> parentSchemaChildNodes = parentSchema == null ? Collections.<DataSchemaNode> emptySet()
+        Collection<DataSchemaNode> parentSchemaChildNodes = parentSchema == null ? Collections.<DataSchemaNode> emptySet()
                 : parentSchema.getChildNodes();
 
         for (Node<?> child : parent.getValue()) {
@@ -170,7 +171,7 @@ class JsonMapper {
         }
     }
 
-    private static DataSchemaNode findFirstSchemaForNode(final Node<?> node, final Set<DataSchemaNode> dataSchemaNode) {
+    private static DataSchemaNode findFirstSchemaForNode(final Node<?> node, final Iterable<DataSchemaNode> dataSchemaNode) {
         for (DataSchemaNode dsn : dataSchemaNode) {
             if (node.getNodeType().equals(dsn.getQName())) {
                 return dsn;
@@ -262,12 +263,12 @@ class JsonMapper {
                 writeStringRepresentation(writer, node, baseType, QName.class);
             }
         } else if (baseType instanceof InstanceIdentifierTypeDefinition) {
-            if (node.getValue() instanceof InstanceIdentifier) {
+            if (node.getValue() instanceof YangInstanceIdentifier) {
                 IdentityValuesDTO valueDTO = (IdentityValuesDTO) RestCodec.from(baseType, mountPoint).serialize(
                         node.getValue());
                 writeIdentityValuesDTOToJson(writer, valueDTO);
             } else {
-                writeStringRepresentation(writer, node, baseType, InstanceIdentifier.class);
+                writeStringRepresentation(writer, node, baseType, YangInstanceIdentifier.class);
             }
         } else if (baseType instanceof DecimalTypeDefinition || baseType instanceof IntegerTypeDefinition
                 || baseType instanceof UnsignedIntegerTypeDefinition) {

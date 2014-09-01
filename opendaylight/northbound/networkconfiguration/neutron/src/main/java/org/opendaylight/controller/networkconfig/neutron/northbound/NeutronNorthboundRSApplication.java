@@ -8,12 +8,13 @@
 
 package org.opendaylight.controller.networkconfig.neutron.northbound;
 
+import org.eclipse.persistence.jaxb.rs.MOXyJsonProvider;
+
+import javax.ws.rs.core.Application;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.ws.rs.core.Application;
-import org.eclipse.persistence.jaxb.rs.MOXyJsonProvider;
 
 
 /**
@@ -34,6 +35,14 @@ public class NeutronNorthboundRSApplication extends Application {
         classes.add(NeutronFloatingIPsNorthbound.class);
         classes.add(NeutronSecurityGroupsNorthbound.class);
         classes.add(NeutronSecurityRulesNorthbound.class);
+        classes.add(NeutronFirewallNorthbound.class);
+        classes.add(NeutronFirewallPolicyNorthbound.class);
+        classes.add(NeutronFirewallRulesNorthbound.class);
+        classes.add(NeutronLoadBalancerNorthbound.class);
+        classes.add(NeutronLoadBalancerListenerNorthbound.class);
+        classes.add(NeutronLoadBalancerPoolNorthbound.class);
+        classes.add(NeutronLoadBalancerHealthMonitorNorthbound.class);
+        classes.add(NeutronLoadBalancerPoolMembersNorthbound.class);
         return classes;
     }
 

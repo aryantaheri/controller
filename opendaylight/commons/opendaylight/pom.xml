@@ -39,17 +39,31 @@
     <clustering.test.version>0.4.2-SNAPSHOT</clustering.test.version>
     <commmons.northbound.version>0.4.2-SNAPSHOT</commmons.northbound.version>
     <!-- Third Party Versions -->
+    <codahale.metrics.version>3.0.1</codahale.metrics.version>
     <commons.catalina>7.0.32.v201211201336</commons.catalina>
     <commons.catalina.ha>7.0.32.v201211201952</commons.catalina.ha>
     <commons.catalina.tribes>7.0.32.v201211201952</commons.catalina.tribes>
-    <commons.checkstyle.version>0.0.3-SNAPSHOT</commons.checkstyle.version>
     <commons.coyote>7.0.32.v201211201952</commons.coyote>
     <commons.el>7.0.32.v201211081135</commons.el>
+    <commons.jasper>7.0.32.v201211201952</commons.jasper>
+    <commons.juli.version>7.0.32.v201211081135</commons.juli.version>
+    <commons.tomcat.api>7.0.32.v201211081135</commons.tomcat.api>
+    <commons.tomcat.util>7.0.32.v201211201952</commons.tomcat.util>
+
+    <commons.karaf.catalina>7.0.53.v201406061610</commons.karaf.catalina>
+    <commons.karaf.catalina.ha>7.0.53.v201406070630</commons.karaf.catalina.ha>
+    <commons.karaf.catalina.tribes>7.0.53.v201406070630</commons.karaf.catalina.tribes>
+    <commons.karaf.coyote>7.0.53.v201406070630</commons.karaf.coyote>
+    <commons.karaf.el>7.0.53.v201406060720</commons.karaf.el>
+    <commons.karaf.jasper>7.0.53.v201406070630</commons.karaf.jasper>
+    <commons.karaf.juli.version>7.0.53.v201406060720</commons.karaf.juli.version>
+    <commons.karaf.tomcat.api>7.0.53.v201406060720</commons.karaf.tomcat.api>
+    <commons.karaf.tomcat.util>7.0.53.v201406070630</commons.karaf.tomcat.util>
+
+    <commons.checkstyle.version>0.0.3-SNAPSHOT</commons.checkstyle.version>
     <commons.fileupload.version>1.2.2</commons.fileupload.version>
     <commons.httpclient.version>0.1.2-SNAPSHOT</commons.httpclient.version>
     <commons.io.version>2.4</commons.io.version>
-    <commons.jasper>7.0.32.v201211201952</commons.jasper>
-    <commons.juli.version>7.0.32.v201211081135</commons.juli.version>
     <commons.lang3.version>3.1</commons.lang3.version>
     <commons.logback_settings.version>0.0.2-SNAPSHOT</commons.logback_settings.version>
     <commons.net.version>3.0.1</commons.net.version>
@@ -57,13 +71,19 @@
     <commons.opendaylight.concepts.version>0.5.2-SNAPSHOT</commons.opendaylight.concepts.version>
     <commons.opendaylight.version>1.4.2-SNAPSHOT</commons.opendaylight.version>
     <commons.parent.version>1.0.2-SNAPSHOT</commons.parent.version>
-    <commons.tomcat.api>7.0.32.v201211081135</commons.tomcat.api>
-    <commons.tomcat.util>7.0.32.v201211201952</commons.tomcat.util>
     <compiler.version>2.3.2</compiler.version>
     <commons.httpclient.version>0.1.2-SNAPSHOT</commons.httpclient.version>
     <concepts.version>0.5.2-SNAPSHOT</concepts.version>
     <concurrentlinkedhashmap.version>1.4</concurrentlinkedhashmap.version>
     <config.version>0.2.5-SNAPSHOT</config.version>
+    <config.configfile.directory>etc/opendaylight/karaf</config.configfile.directory>
+    <config.netty.configfile>00-netty.xml</config.netty.configfile>
+    <config.mdsal.configfile>01-mdsal.xml</config.mdsal.configfile>
+    <config.xsql.configfile>04-xsql.xml</config.xsql.configfile>
+    <config.netconf.client.configfile>01-netconf.xml</config.netconf.client.configfile>
+    <config.toaster.configfile>03-toaster-sample.xml</config.toaster.configfile>
+    <config.restconf.configfile>10-rest-connector.xml</config.restconf.configfile>
+    <config.netconf.connector.configfile>99-netconf-connector.xml</config.netconf.connector.configfile>
     <configuration.implementation.version>0.4.3-SNAPSHOT</configuration.implementation.version>
     <configuration.version>0.4.3-SNAPSHOT</configuration.version>
     <connectionmanager.version>0.1.2-SNAPSHOT</connectionmanager.version>
@@ -75,6 +95,7 @@
     <devices.web.version>0.4.2-SNAPSHOT</devices.web.version>
     <dummy-console.version>1.1.0-SNAPSHOT</dummy-console.version>
     <eclipse.persistence.version>2.5.0</eclipse.persistence.version>
+    <eclipse.jdt.core.compiler.batch.version>3.8.0.I20120518-2145</eclipse.jdt.core.compiler.batch.version>
     <!-- enforcer version -->
     <enforcer.version>1.3.1</enforcer.version>
     <enunciate.version>1.28</enunciate.version>
@@ -83,6 +104,7 @@
     <!-- OpenEXI third party lib for netconf-->
 
     <exi.nagasena.version>0000.0002.0038.0</exi.nagasena.version>
+    <felix.util.version>1.6.0</felix.util.version>
     <filtervalve.version>1.4.2-SNAPSHOT</filtervalve.version>
     <findbugs.maven.plugin.version>2.4.0</findbugs.maven.plugin.version>
     <flowprogrammer.northbound.version>0.4.2-SNAPSHOT</flowprogrammer.northbound.version>
@@ -95,6 +117,7 @@
     <hosttracker.api.version>0.5.2-SNAPSHOT</hosttracker.api.version>
     <hosttracker.implementation.version>0.5.2-SNAPSHOT</hosttracker.implementation.version>
     <hosttracker.northbound.version>0.4.2-SNAPSHOT</hosttracker.northbound.version>
+    <hosttracker.shell.version>1.0.0-SNAPSHOT</hosttracker.shell.version>
     <hosttracker_new.api.version>0.4.2-SNAPSHOT</hosttracker_new.api.version>
     <hosttracker_new.implementation.version>0.4.2-SNAPSHOT</hosttracker_new.implementation.version>
     <httpservice-bridge.northbound.version>0.0.2-SNAPSHOT</httpservice-bridge.northbound.version>
@@ -109,7 +132,6 @@
     <jsr305.api.version>2.0.1</jsr305.api.version>
     <jsr311.api.version>1.1.1</jsr311.api.version>
     <jsr311.v2.api.version>2.0</jsr311.v2.api.version>
-    <junit.version>4.8.1</junit.version>
     <karaf.branding.version>1.0.0-SNAPSHOT</karaf.branding.version>
     <karaf.shell.version>3.0.0</karaf.shell.version>
     <karaf.version>3.0.1</karaf.version>
@@ -133,6 +155,7 @@
     <northbound.jolokia.version>1.4.2-SNAPSHOT</northbound.jolokia.version>
     <opendaylight-l2-types.version>2013.08.27.4-SNAPSHOT</opendaylight-l2-types.version>
     <osgi-brandfragment.web.version>0.0.2-SNAPSHOT</osgi-brandfragment.web.version>
+    <pax.exam.version>4.0.0</pax.exam.version>
     <parboiled.version>1.1.6</parboiled.version>
     <parboiled.scala.version>1.1.6</parboiled.scala.version>
     <propertymavenplugin.version>1.0-alpha-2</propertymavenplugin.version>
@@ -153,20 +176,23 @@
     <scala.version>2.10</scala.version>
     <scala.micro.version>4</scala.micro.version>
     <security.version>0.4.2-SNAPSHOT</security.version>
+    <karaf.security.version>0.4.2-SNAPSHOT</karaf.security.version>
     <shapeless.version>1.2.4</shapeless.version>
     <sitedeploy>dav:http://nexus.opendaylight.org/content/sites/site</sitedeploy>
     <sonar.branch>${user.name}-private-view</sonar.branch>
     <sonar.host.url>https://sonar.opendaylight.org/</sonar.host.url>
     <!-- Sonar properties using jacoco to retrieve integration test results -->
+    <sonar-jacoco-listeners.version>2.4</sonar-jacoco-listeners.version>
     <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
     <sonar.language>java</sonar.language>
+    <sonar.jacoco.reportPath>target/code-coverage/jacoco.exec</sonar.jacoco.reportPath>
+    <sonar.jacoco.itReportPath>target/code-coverage/jacoco-it.exec</sonar.jacoco.itReportPath>
     <sonar.skippedModules>org.openflow.openflowj,net.sf.jung2,org.opendaylight.controller.protobuff.messages</sonar.skippedModules>
     <spifly.version>1.0.0</spifly.version>
     <spring-osgi.version>1.2.1</spring-osgi.version>
     <spring-security-karaf.version>3.1.4.RELEASE</spring-security-karaf.version>
     <spring-security.version>3.1.3.RELEASE</spring-security.version>
     <spring.version>3.1.3.RELEASE</spring.version>
-    <sonar.skippedModules>org.openflow.openflowj,net.sf.jung2</sonar.skippedModules>
     <statistics.northbound.version>0.4.2-SNAPSHOT</statistics.northbound.version>
     <statisticsmanager.implementation.version>0.4.2-SNAPSHOT</statisticsmanager.implementation.version>
     <statisticsmanager.version>0.5.1-SNAPSHOT</statisticsmanager.version>
@@ -179,17 +205,20 @@
     <topology.northbound.version>0.4.2-SNAPSHOT</topology.northbound.version>
     <topology.web.version>0.4.2-SNAPSHOT</topology.web.version>
     <topologymanager.version>0.4.2-SNAPSHOT</topologymanager.version>
+    <topologymanager.shell.version>1.0.0-SNAPSHOT</topologymanager.shell.version>
     <troubleshoot.web.version>0.4.2-SNAPSHOT</troubleshoot.web.version>
     <typesafe.config.version>1.2.0</typesafe.config.version>
     <uncommons.maths.version>1.2.2</uncommons.maths.version>
     <usermanager.implementation.version>0.4.2-SNAPSHOT</usermanager.implementation.version>
     <usermanager.northbound.version>0.0.2-SNAPSHOT</usermanager.northbound.version>
     <usermanager.version>0.4.2-SNAPSHOT</usermanager.version>
+    <nsf.version>0.4.2-SNAPSHOT</nsf.version>
     <web.version>0.4.2-SNAPSHOT</web.version>
     <xtend.dstdir>src/main/xtend-gen</xtend.dstdir>
     <yang-ext.version>2013.09.07.4-SNAPSHOT</yang-ext.version>
     <yang-jmx-generator.version>1.0.0-SNAPSHOT</yang-jmx-generator.version>
     <yangtools.version>0.6.2-SNAPSHOT</yangtools.version>
+      <sshd-core.version>0.12.0</sshd-core.version>
   </properties>
 
   <dependencyManagement>
@@ -211,6 +240,11 @@
         <version>${netconf.version}</version>
       </dependency>
       <dependency>
+        <groupId>org.apache.sshd</groupId>
+        <artifactId>sshd-core</artifactId>
+        <version>${sshd-core.version}</version>
+      </dependency>
+      <dependency>
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-classic</artifactId>
         <version>${logback.version}</version>
@@ -219,6 +253,16 @@
         <groupId>ch.qos.logback</groupId>
         <artifactId>logback-core</artifactId>
         <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.codahale.metrics</groupId>
+        <artifactId>metrics-core</artifactId>
+        <version>${codahale.metrics.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.codahale.metrics</groupId>
+        <artifactId>metrics-graphite</artifactId>
+        <version>${codahale.metrics.version}</version>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
@@ -294,11 +338,15 @@
         <artifactId>jersey-core</artifactId>
         <version>${jersey.version}</version>
       </dependency>
-
       <dependency>
         <groupId>com.sun.jersey</groupId>
         <artifactId>jersey-server</artifactId>
         <version>${jersey.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.sun.jersey</groupId>
+        <artifactId>jersey-servlet</artifactId>
+        <version>${jersey-servlet.version}</version>
       </dependency>
 
       <dependency>
@@ -329,6 +377,16 @@
         <artifactId>akka-testkit_${scala.version}</artifactId>
         <version>${akka.version}</version>
       </dependency>
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-osgi_${scala.version}</artifactId>
+            <version>${akka.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-slf4j_${scala.version}</artifactId>
+            <version>${akka.version}</version>
+        </dependency>
       <dependency>
         <groupId>commons-codec</groupId>
         <artifactId>commons-codec</artifactId>
@@ -838,6 +896,11 @@
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
+        <artifactId>config-persister-feature-adapter</artifactId>
+        <version>${config.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
         <artifactId>config-persister-impl</artifactId>
         <version>${netconf.version}</version>
       </dependency>
@@ -920,11 +983,6 @@
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
-        <artifactId>flow-management-compatibility</artifactId>
-        <version>${mdsal.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.opendaylight.controller</groupId>
         <artifactId>flowprogrammer.northbound</artifactId>
         <version>${flowprogrammer.northbound.version}</version>
       </dependency>
@@ -971,6 +1029,11 @@
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
+        <artifactId>hosttracker.shell</artifactId>
+        <version>${hosttracker.shell.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
         <artifactId>hosttracker_new</artifactId>
         <version>${hosttracker_new.api.version}</version>
       </dependency>
@@ -992,6 +1055,11 @@
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
+        <artifactId>liblldp</artifactId>
+        <version>${sal.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
         <artifactId>logback-config</artifactId>
         <version>${config.version}</version>
       </dependency>
@@ -1000,6 +1068,11 @@
         <groupId>org.opendaylight.controller</groupId>
         <artifactId>logging.bridge</artifactId>
         <version>${logging.bridge.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>dummy-console</artifactId>
+        <version>${dummy-console.version}</version>
       </dependency>
 
       <!-- Netconf -->
@@ -1053,6 +1126,16 @@
         <version>${netconf.version}</version>
         <type>test-jar</type>
       </dependency>
+        <dependency>
+            <groupId>org.opendaylight.controller</groupId>
+            <artifactId>netconf-auth</artifactId>
+            <version>${netconf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.opendaylight.controller</groupId>
+            <artifactId>netconf-usermanager</artifactId>
+            <version>${netconf.version}</version>
+        </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
         <artifactId>netconf-ssh</artifactId>
@@ -1202,12 +1285,22 @@
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
+        <artifactId>sal-inmemory-datastore</artifactId>
+        <version>${mdsal.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
         <artifactId>sal-compatibility</artifactId>
         <version>${mdsal.version}</version>
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
         <artifactId>sal-connector-api</artifactId>
+        <version>${mdsal.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>sal-dom-xsql</artifactId>
         <version>${mdsal.version}</version>
       </dependency>
       <dependency>
@@ -1237,6 +1330,31 @@
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
+        <artifactId>sal-rest-connector-config</artifactId>
+        <version>${mdsal.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>config-netty-config</artifactId>
+        <version>${config.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>md-sal-config</artifactId>
+        <version>${mdsal.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>netconf-config</artifactId>
+        <version>${netconf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>netconf-connector-config</artifactId>
+        <version>${netconf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
         <artifactId>sal-rest-docgen</artifactId>
         <version>${mdsal.version}</version>
       </dependency>
@@ -1250,6 +1368,28 @@
         <artifactId>sal-test-model</artifactId>
         <version>${mdsal.version}</version>
       </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>sal-distributed-datastore</artifactId>
+        <version>${mdsal.version}</version>
+      </dependency>
+        <dependency>
+            <groupId>org.opendaylight.controller</groupId>
+            <artifactId>sal-clustering-commons</artifactId>
+            <version>${mdsal.version}</version>
+        </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>sal-clustering-config</artifactId>
+        <version>${mdsal.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>sal-remoterpc-connector</artifactId>
+        <version>${mdsal.version}</version>
+      </dependency>
+
 
       <!-- SAL Extension bundles -->
       <dependency>
@@ -1303,6 +1443,11 @@
         <groupId>org.opendaylight.controller</groupId>
         <artifactId>security</artifactId>
         <version>${security.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>karaf-tomcat-security</artifactId>
+        <version>${karaf.security.version}</version>
       </dependency>
 
       <dependency>
@@ -1379,6 +1524,11 @@
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller</groupId>
+        <artifactId>topologymanager.shell</artifactId>
+        <version>${topologymanager.shell.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
         <artifactId>troubleshoot.web</artifactId>
         <version>${troubleshoot.web.version}</version>
       </dependency>
@@ -1452,11 +1602,6 @@
       </dependency>
       <dependency>
         <groupId>org.opendaylight.controller.model</groupId>
-        <artifactId>model-flow-management</artifactId>
-        <version>${mdsal.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.opendaylight.controller.model</groupId>
         <artifactId>model-flow-service</artifactId>
         <version>${mdsal.version}</version>
       </dependency>
@@ -1492,6 +1637,49 @@
         <version>${mdsal.version}</version>
       </dependency>
       <dependency>
+        <groupId>org.opendaylight.controller.samples</groupId>
+        <artifactId>toaster-config</artifactId>
+        <version>${mdsal.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.yangtools</groupId>
+        <artifactId>features-test</artifactId>
+        <version>${yangtools.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.yangtools</groupId>
+        <artifactId>features-yangtools</artifactId>
+        <version>${yangtools.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller.samples</groupId>
+        <artifactId>features-toaster</artifactId>
+        <version>${mdsal.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-config-netty</artifactId>
+        <version>${config.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-flow</artifactId>
+        <version>${mdsal.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
         <groupId>org.opendaylight.controller.thirdparty</groupId>
         <artifactId>com.sun.jersey.jersey-servlet</artifactId>
         <version>${jersey-servlet.version}</version>
@@ -1520,6 +1708,11 @@
       <dependency>
         <groupId>org.opendaylight.yangtools</groupId>
         <artifactId>binding-generator-impl</artifactId>
+        <version>${yangtools.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.yangtools</groupId>
+        <artifactId>binding-data-codec</artifactId>
         <version>${yangtools.version}</version>
       </dependency>
       <dependency>
@@ -1565,6 +1758,11 @@
       <dependency>
         <groupId>org.opendaylight.yangtools</groupId>
         <artifactId>util</artifactId>
+        <version>${yangtools.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.yangtools</groupId>
+        <artifactId>yang-data-composite-node</artifactId>
         <version>${yangtools.version}</version>
       </dependency>
 
@@ -1722,12 +1920,6 @@
         <version>${slf4j.version}</version>
       </dependency>
       <dependency>
-        <groupId>junit</groupId>
-        <artifactId>junit</artifactId>
-        <version>${junit.version}</version>
-        <scope>test</scope>
-      </dependency>
-      <dependency>
         <groupId>org.opendaylight.controller</groupId>
         <artifactId>commons.logback_settings</artifactId>
         <version>0.0.2-SNAPSHOT</version>
@@ -1752,8 +1944,90 @@
         <version>${yangtools.version}</version>
         <scope>test</scope>
       </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-config</artifactId>
+        <version>${config.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-protocol-framework</artifactId>
+        <version>${protocol-framework.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-netconf</artifactId>
+        <version>${netconf.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-config-persister</artifactId>
+        <version>${config.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>config-netty-features</artifactId>
+        <version>${config.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-base</artifactId>
+        <version>${commons.opendaylight.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-adsal</artifactId>
+        <version>${sal.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-nsf</artifactId>
+        <version>${nsf.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>features-mdsal</artifactId>
+        <version>${mdsal.version}</version>
+        <classifier>features</classifier>
+        <type>xml</type>
+        <scope>runtime</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <dependencies>
+    <!-- Sonar -->
+    <dependency>
+      <groupId>org.codehaus.sonar-plugins.java</groupId>
+      <artifactId>sonar-jacoco-listeners</artifactId>
+      <version>${sonar-jacoco-listeners.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 
   <build>
     <pluginManagement>
@@ -2048,6 +2322,30 @@
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
           <version>${jacoco.version}</version>
+          <executions>
+            <execution>
+              <id>prepare-ut-agent</id>
+              <phase>process-test-classes</phase>
+              <goals>
+                <goal>prepare-agent</goal>
+              </goals>
+              <configuration>
+                <destFile>${sonar.jacoco.reportPath}</destFile>
+                <propertyName>jacoco.agent.ut.arg</propertyName>
+              </configuration>
+            </execution>
+            <execution>
+              <id>prepare-it-agent</id>
+              <phase>pre-integration-test</phase>
+              <goals>
+                <goal>prepare-agent</goal>
+              </goals>
+              <configuration>
+                <destFile>${sonar.jacoco.itReportPath}</destFile>
+                <propertyName>jacoco.agent.it.arg</propertyName>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <groupId>org.opendaylight.yangtools</groupId>
@@ -2081,7 +2379,7 @@
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <sourceDirectory>${project.basedir}</sourceDirectory>
           <includes>**\/*.java,**\/*.xml,**\/*.ini,**\/*.sh,**\/*.bat</includes>
-          <excludes>**\/target\/,**\/bin\/,**\/target-ide\/,**\/${jmxGeneratorPath}\/,**\/${salGeneratorPath}\/,**\/xtend-gen\/</excludes>
+          <excludes>**\/target\/,**\/bin\/,**\/target-ide\/,**\/${jmxGeneratorPath}\/,**\/${salGeneratorPath}\/,**\/xtend-gen\/,**\/protobuff\/</excludes>
         </configuration>
         <dependencies>
           <dependency>
@@ -2124,13 +2422,20 @@
         <artifactId>maven-failsafe-plugin</artifactId>
         <version>${failsafe.version}</version>
         <configuration>
-          <argLine>${testvm.argLine}</argLine>
+          <argLine>${testvm.argLine} ${jacoco.agent.it.arg}</argLine>
           <systemProperties>
             <property>
               <name>logback.configurationFile</name>
               <value>logback.xml</value>
             </property>
           </systemProperties>
+          <!-- Specific to generate mapping between tests and covered code -->
+          <properties>
+            <property>
+                <name>listener</name>
+                <value>org.sonar.java.jacoco.JUnitListener</value>
+            </property>
+          </properties>
         </configuration>
         <executions>
           <execution>
@@ -2154,18 +2459,29 @@
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${surefire.version}</version>
         <configuration>
-          <argLine>${testvm.argLine}</argLine>
+          <argLine>${testvm.argLine} ${jacoco.agent.ut.arg}</argLine>
           <systemProperties>
             <property>
               <name>logback.configurationFile</name>
               <value>logback.xml</value>
             </property>
           </systemProperties>
+          <!-- Specific to generate mapping between tests and covered code -->
+          <properties>
+            <property>
+                <name>listener</name>
+                <value>org.sonar.java.jacoco.JUnitListener</value>
+            </property>
+          </properties>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
       </plugin>
     </plugins>
   </build>

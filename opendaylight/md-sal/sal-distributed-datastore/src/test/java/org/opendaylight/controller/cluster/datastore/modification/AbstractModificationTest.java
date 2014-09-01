@@ -17,7 +17,7 @@ import org.opendaylight.controller.md.sal.dom.store.impl.InMemoryDOMDataStore;
 import org.opendaylight.controller.sal.core.spi.data.DOMStoreReadTransaction;
 import org.opendaylight.controller.sal.core.spi.data.DOMStoreThreePhaseCommitCohort;
 import org.opendaylight.controller.sal.core.spi.data.DOMStoreWriteTransaction;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
 import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
 
 public abstract class AbstractModificationTest {
@@ -26,7 +26,8 @@ public abstract class AbstractModificationTest {
 
   @Before
   public void setUp(){
-    store = new InMemoryDOMDataStore("test", MoreExecutors.sameThreadExecutor());
+    store = new InMemoryDOMDataStore("test", MoreExecutors.sameThreadExecutor(),
+            MoreExecutors.sameThreadExecutor());
     store.onGlobalContextUpdated(TestModel.createTestContext());
   }
 
@@ -36,7 +37,7 @@ public abstract class AbstractModificationTest {
     cohort.commit();
   }
 
-  protected Optional<NormalizedNode<?,?>> readData(InstanceIdentifier path) throws Exception{
+  protected Optional<NormalizedNode<?,?>> readData(YangInstanceIdentifier path) throws Exception{
     DOMStoreReadTransaction transaction = store.newReadOnlyTransaction();
     ListenableFuture<Optional<NormalizedNode<?, ?>>> future = transaction.read(path);
     return future.get();

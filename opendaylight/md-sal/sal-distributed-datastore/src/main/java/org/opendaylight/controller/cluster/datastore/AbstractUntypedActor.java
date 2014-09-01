@@ -18,7 +18,7 @@ public abstract class AbstractUntypedActor extends UntypedActor {
         Logging.getLogger(getContext().system(), this);
 
 
-    public AbstractUntypedActor(){
+    public AbstractUntypedActor() {
         LOG.debug("Actor created {}", getSelf());
         getContext().
             system().
@@ -27,10 +27,20 @@ public abstract class AbstractUntypedActor extends UntypedActor {
     }
 
     @Override public void onReceive(Object message) throws Exception {
-        LOG.debug("Received message {}", message);
+        LOG.debug("Received message {}", message.getClass().getSimpleName());
         handleReceive(message);
-        LOG.debug("Done handling message {}", message);
+        LOG.debug("Done handling message {}",
+            message.getClass().getSimpleName());
     }
 
     protected abstract void handleReceive(Object message) throws Exception;
+
+    protected void ignoreMessage(Object message) {
+        LOG.debug("Unhandled message {} ", message);
+    }
+
+    protected void unknownMessage(Object message) throws Exception {
+        LOG.debug("Received unhandled message {}", message);
+        unhandled(message);
+    }
 }

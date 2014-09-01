@@ -374,7 +374,7 @@ public class RestconfDocumentedExceptionMapperTest extends JerseyTest {
     public void testToJsonResponseWithDataMissingErrorTag() throws Exception {
 
         testJsonResponse(new RestconfDocumentedException("mock error", ErrorType.PROTOCOL, ErrorTag.DATA_MISSING),
-                Status.CONFLICT, ErrorType.PROTOCOL, ErrorTag.DATA_MISSING, "mock error", null, null);
+                Status.NOT_FOUND, ErrorType.PROTOCOL, ErrorTag.DATA_MISSING, "mock error", null, null);
     }
 
     @Test
@@ -412,7 +412,7 @@ public class RestconfDocumentedExceptionMapperTest extends JerseyTest {
 
         List<RestconfError> errorList = Arrays.asList(new RestconfError(ErrorType.APPLICATION, ErrorTag.LOCK_DENIED,
                 "mock error1"), new RestconfError(ErrorType.RPC, ErrorTag.ROLLBACK_FAILED, "mock error2"));
-        stageMockEx(new RestconfDocumentedException(errorList));
+        stageMockEx(new RestconfDocumentedException("mock", null, errorList));
 
         Response resp = target("/operational/foo").request(MediaType.APPLICATION_JSON).get();
 
@@ -594,7 +594,7 @@ public class RestconfDocumentedExceptionMapperTest extends JerseyTest {
     public void testToXMLResponseWithDataMissingErrorTag() throws Exception {
 
         testXMLResponse(new RestconfDocumentedException("mock error", ErrorType.PROTOCOL, ErrorTag.DATA_MISSING),
-                Status.CONFLICT, ErrorType.PROTOCOL, ErrorTag.DATA_MISSING, "mock error", null, null);
+                Status.NOT_FOUND, ErrorType.PROTOCOL, ErrorTag.DATA_MISSING, "mock error", null, null);
     }
 
     @Test
@@ -651,7 +651,7 @@ public class RestconfDocumentedExceptionMapperTest extends JerseyTest {
 
         List<RestconfError> errorList = Arrays.asList(new RestconfError(ErrorType.APPLICATION, ErrorTag.LOCK_DENIED,
                 "mock error1"), new RestconfError(ErrorType.RPC, ErrorTag.ROLLBACK_FAILED, "mock error2"));
-        stageMockEx(new RestconfDocumentedException(errorList));
+        stageMockEx(new RestconfDocumentedException("mock", null, errorList));
 
         Response resp = target("/operational/foo").request(MediaType.APPLICATION_XML).get();
 

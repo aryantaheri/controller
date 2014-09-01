@@ -19,7 +19,9 @@
 
   <modules>
     <module>netconf-api</module>
-    <module>netconf-cli</module>
+      <!--FIXME make compilable-->
+    <!--<module>netconf-cli</module>-->
+    <module>netconf-config</module>
     <module>netconf-impl</module>
     <module>config-netconf-connector</module>
     <module>netconf-util</module>
@@ -32,6 +34,9 @@
     <module>netconf-monitoring</module>
     <module>ietf-netconf-monitoring</module>
     <module>ietf-netconf-monitoring-extension</module>
+    <module>netconf-connector-config</module>
+    <module>netconf-auth</module>
+    <module>netconf-usermanager</module>
   </modules>
 
   <dependencies>
@@ -145,6 +150,16 @@
       </activation>
       <modules>
         <module>netconf-it</module>
+      </modules>
+    </profile>
+
+    <profile>
+        <id>testtool</id>
+        <activation>
+            <activeByDefault>false</activeByDefault>
+        </activation>
+        <modules>
+            <module>netconf-testtool</module>
       </modules>
     </profile>
   </profiles>

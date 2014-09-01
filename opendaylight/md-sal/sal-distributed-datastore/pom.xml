@@ -40,6 +40,11 @@
       <artifactId>akka-testkit_${scala.version}</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>com.typesafe.akka</groupId>
+      <artifactId>akka-slf4j_${scala.version}</artifactId>
+    </dependency>
+
     <!-- SAL Dependencies -->
 
     <dependency>
@@ -118,6 +123,27 @@
       <artifactId>scala-library</artifactId>
     </dependency>
 
+    <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>sal-clustering-commons</artifactId>
+        <version>1.1-SNAPSHOT</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.opendaylight.controller</groupId>
+        <artifactId>sal-akka-raft</artifactId>
+        <version>1.1-SNAPSHOT</version>
+    </dependency>
+
+      <dependency>
+          <groupId>com.codahale.metrics</groupId>
+          <artifactId>metrics-core</artifactId>
+      </dependency>
+
+      <dependency>
+          <groupId>com.codahale.metrics</groupId>
+          <artifactId>metrics-graphite</artifactId>
+      </dependency>
     <!-- Test Dependencies -->
     <dependency>
       <groupId>junit</groupId>
@@ -151,8 +177,11 @@
             <Bundle-Name>${project.groupId}.${project.artifactId}</Bundle-Name>
             <Export-package></Export-package>
             <Private-Package></Private-Package>
-            <Import-Package>!*snappy;!org.jboss.*;*</Import-Package>
+            <Import-Package>!*snappy;!org.jboss.*;!com.jcraft.*;*</Import-Package>
             <Embed-Dependency>
+                sal-clustering-commons;
+                sal-akka-raft;
+                *metrics*;
                 !sal*;
                 !*config-api*;
                 !*testkit*;
@@ -187,7 +216,11 @@
         <configuration>
           <includes>
             <include>org.opendaylight.controller.*</include>
+
           </includes>
+          <excludes>
+              <exclude>org.opendaylight.controller.config.yang.config.*</exclude>
+          </excludes>
           <check>false</check>
         </configuration>
         <executions>

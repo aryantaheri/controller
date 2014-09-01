@@ -9,26 +9,33 @@ package org.opendaylight.controller.sal.restconf.impl.test;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
+import com.google.common.base.Optional;
+import com.google.common.util.concurrent.CheckedFuture;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
-import java.util.concurrent.Future;
+
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.Application;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.test.JerseyTest;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.opendaylight.controller.md.sal.common.api.TransactionStatus;
-import org.opendaylight.controller.sal.core.api.mount.MountInstance;
-import org.opendaylight.controller.sal.core.api.mount.MountService;
+import org.opendaylight.controller.md.sal.common.api.data.OptimisticLockFailedException;
+import org.opendaylight.controller.md.sal.common.api.data.TransactionCommitFailedException;
+import org.opendaylight.controller.md.sal.dom.api.DOMMountPoint;
+import org.opendaylight.controller.md.sal.dom.api.DOMMountPointService;
 import org.opendaylight.controller.sal.rest.impl.JsonToCompositeNodeProvider;
 import org.opendaylight.controller.sal.rest.impl.RestconfDocumentedExceptionMapper;
 import org.opendaylight.controller.sal.rest.impl.StructuredDataToJsonProvider;
@@ -36,10 +43,10 @@ import org.opendaylight.controller.sal.rest.impl.StructuredDataToXmlProvider;
 import org.opendaylight.controller.sal.rest.impl.XmlToCompositeNodeProvider;
 import org.opendaylight.controller.sal.restconf.impl.BrokerFacade;
 import org.opendaylight.controller.sal.restconf.impl.ControllerContext;
+import org.opendaylight.controller.sal.restconf.impl.RestconfDocumentedException;
 import org.opendaylight.controller.sal.restconf.impl.RestconfImpl;
-import org.opendaylight.yangtools.yang.common.RpcResult;
-import org.opendaylight.yangtools.yang.data.api.CompositeNode;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
 import org.opendaylight.yangtools.yang.model.api.SchemaContext;
 
 public class RestPutOperationTest extends JerseyTest {
@@ -96,10 +103,10 @@ public class RestPutOperationTest extends JerseyTest {
     @Test
     public void putConfigStatusCodes() throws UnsupportedEncodingException {
         String uri = "/config/ietf-interfaces:interfaces/interface/eth0";
-        mockCommitConfigurationDataPutMethod(TransactionStatus.COMMITED);
+        mockCommitConfigurationDataPutMethod(true);
         assertEquals(200, put(uri, MediaType.APPLICATION_XML, xmlData));
 
-        mockCommitConfigurationDataPutMethod(TransactionStatus.FAILED);
+        mockCommitConfigurationDataPutMethod(false);
         assertEquals(500, put(uri, MediaType.APPLICATION_XML, xmlData));
 
         assertEquals(400, put(uri, MediaType.APPLICATION_JSON, ""));
@@ -117,18 +124,16 @@ public class RestPutOperationTest extends JerseyTest {
     public void testRpcResultCommitedToStatusCodesWithMountPoint() throws UnsupportedEncodingException,
             FileNotFoundException, URISyntaxException {
 
-        RpcResult<TransactionStatus> rpcResult = new DummyRpcResult.Builder<TransactionStatus>().result(
-                TransactionStatus.COMMITED).build();
-        Future<RpcResult<TransactionStatus>> dummyFuture = new DummyFuture.Builder<TransactionStatus>().rpcResult(
-                rpcResult).build();
-        when(
-                brokerFacade.commitConfigurationDataPutBehindMountPoint(any(MountInstance.class),
-                        any(InstanceIdentifier.class), any(CompositeNode.class))).thenReturn(dummyFuture);
+        CheckedFuture<Void, TransactionCommitFailedException> dummyFuture = mock(CheckedFuture.class);
 
-        MountInstance mountInstance = mock(MountInstance.class);
+        when(
+                brokerFacade.commitConfigurationDataPut(any(DOMMountPoint.class), any(YangInstanceIdentifier.class),
+                        any(NormalizedNode.class))).thenReturn(dummyFuture);
+
+        DOMMountPoint mountInstance = mock(DOMMountPoint.class);
         when(mountInstance.getSchemaContext()).thenReturn(schemaContextTestModule);
-        MountService mockMountService = mock(MountService.class);
-        when(mockMountService.getMountPoint(any(InstanceIdentifier.class))).thenReturn(mountInstance);
+        DOMMountPointService mockMountService = mock(DOMMountPointService.class);
+        when(mockMountService.getMountPoint(any(YangInstanceIdentifier.class))).thenReturn(Optional.of(mountInstance));
 
         ControllerContext.getInstance().setMountService(mockMountService);
 
@@ -141,18 +146,15 @@ public class RestPutOperationTest extends JerseyTest {
 
     @Test
     public void putDataMountPointIntoHighestElement() throws UnsupportedEncodingException, URISyntaxException {
-        RpcResult<TransactionStatus> rpcResult = new DummyRpcResult.Builder<TransactionStatus>().result(
-                TransactionStatus.COMMITED).build();
-        Future<RpcResult<TransactionStatus>> dummyFuture = new DummyFuture.Builder<TransactionStatus>().rpcResult(
-                rpcResult).build();
+        CheckedFuture<Void, TransactionCommitFailedException> dummyFuture = mock(CheckedFuture.class);
         when(
-                brokerFacade.commitConfigurationDataPutBehindMountPoint(any(MountInstance.class),
-                        any(InstanceIdentifier.class), any(CompositeNode.class))).thenReturn(dummyFuture);
+                brokerFacade.commitConfigurationDataPut(any(DOMMountPoint.class), any(YangInstanceIdentifier.class),
+                        any(NormalizedNode.class))).thenReturn(dummyFuture);
 
-        MountInstance mountInstance = mock(MountInstance.class);
+        DOMMountPoint mountInstance = mock(DOMMountPoint.class);
         when(mountInstance.getSchemaContext()).thenReturn(schemaContextTestModule);
-        MountService mockMountService = mock(MountService.class);
-        when(mockMountService.getMountPoint(any(InstanceIdentifier.class))).thenReturn(mountInstance);
+        DOMMountPointService mockMountService = mock(DOMMountPointService.class);
+        when(mockMountService.getMountPoint(any(YangInstanceIdentifier.class))).thenReturn(Optional.of(mountInstance));
 
         ControllerContext.getInstance().setMountService(mockMountService);
 
@@ -160,17 +162,48 @@ public class RestPutOperationTest extends JerseyTest {
         assertEquals(200, put(uri, MediaType.APPLICATION_XML, xmlData3));
     }
 
+    @Test
+    public void putWithOptimisticLockFailedException() throws UnsupportedEncodingException {
+
+        String uri = "/config/ietf-interfaces:interfaces/interface/eth0";
+
+        doThrow(OptimisticLockFailedException.class).
+            when(brokerFacade).commitConfigurationDataPut(
+                any(YangInstanceIdentifier.class), any(NormalizedNode.class));
+
+        assertEquals(500, put(uri, MediaType.APPLICATION_XML, xmlData));
+
+        doThrow(OptimisticLockFailedException.class).doReturn(mock(CheckedFuture.class)).
+            when(brokerFacade).commitConfigurationDataPut(
+                any(YangInstanceIdentifier.class), any(NormalizedNode.class));
+
+        assertEquals(200, put(uri, MediaType.APPLICATION_XML, xmlData));
+    }
+
+    @Test
+    public void putWithTransactionCommitFailedException() throws UnsupportedEncodingException {
+
+        String uri = "/config/ietf-interfaces:interfaces/interface/eth0";
+
+        doThrow(TransactionCommitFailedException.class).
+            when(brokerFacade).commitConfigurationDataPut(
+                any(YangInstanceIdentifier.class), any(NormalizedNode.class));
+
+        assertEquals(500, put(uri, MediaType.APPLICATION_XML, xmlData));
+    }
+
     private int put(String uri, String mediaType, String data) throws UnsupportedEncodingException {
         return target(uri).request(mediaType).put(Entity.entity(data, mediaType)).getStatus();
     }
 
-    private void mockCommitConfigurationDataPutMethod(TransactionStatus statusName) {
-        RpcResult<TransactionStatus> rpcResult = new DummyRpcResult.Builder<TransactionStatus>().result(statusName)
-                .build();
-        Future<RpcResult<TransactionStatus>> dummyFuture = new DummyFuture.Builder<TransactionStatus>().rpcResult(
-                rpcResult).build();
-        when(brokerFacade.commitConfigurationDataPut(any(InstanceIdentifier.class), any(CompositeNode.class)))
-                .thenReturn(dummyFuture);
+    private void mockCommitConfigurationDataPutMethod(final boolean noErrors) {
+        if (noErrors) {
+            doReturn(mock(CheckedFuture.class)).when(brokerFacade).commitConfigurationDataPut(
+                    any(YangInstanceIdentifier.class), any(NormalizedNode.class));
+        } else {
+            doThrow(RestconfDocumentedException.class).when(brokerFacade).commitConfigurationDataPut(
+                    any(YangInstanceIdentifier.class), any(NormalizedNode.class));
+        }
     }
 
 }

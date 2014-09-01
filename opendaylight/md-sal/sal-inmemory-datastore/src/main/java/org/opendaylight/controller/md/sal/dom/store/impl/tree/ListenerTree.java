@@ -27,8 +27,8 @@ import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeListene
 import org.opendaylight.controller.md.sal.dom.store.impl.DataChangeListenerRegistration;
 import org.opendaylight.yangtools.concepts.AbstractListenerRegistration;
 import org.opendaylight.yangtools.concepts.Identifiable;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.PathArgument;
 import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
 import org.opendaylight.yangtools.yang.data.api.schema.tree.StoreTreeNode;
 import org.slf4j.Logger;
@@ -64,7 +64,7 @@ public final class ListenerTree  {
      * @param scope Scope of triggering event.
      * @return Listener registration
      */
-    public <L extends AsyncDataChangeListener<InstanceIdentifier, NormalizedNode<?, ?>>> DataChangeListenerRegistration<L> registerDataChangeListener(final InstanceIdentifier path,
+    public <L extends AsyncDataChangeListener<YangInstanceIdentifier, NormalizedNode<?, ?>>> DataChangeListenerRegistration<L> registerDataChangeListener(final YangInstanceIdentifier path,
             final L listener, final DataChangeScope scope) {
 
         // Take the write lock
@@ -84,7 +84,7 @@ public final class ListenerTree  {
                 }
 
                 @Override
-                public InstanceIdentifier getPath() {
+                public YangInstanceIdentifier getPath() {
                     return path;
                 }
 
@@ -144,7 +144,10 @@ public final class ListenerTree  {
 
     /**
      * A walking context, pretty much equivalent to an iterator, but it
-     * exposes the undelying tree structure.
+     * exposes the underlying tree structure.
+     */
+    /*
+     * FIXME: BUG-1511: split this class out as ListenerWalker.
      */
     public static final class Walker implements AutoCloseable {
         private final Lock lock;
@@ -176,6 +179,9 @@ public final class ListenerTree  {
      * and instance of this class is guaranteed to have any relevance or consistency
      * only as long as the {@link org.opendaylight.controller.md.sal.dom.store.impl.tree.ListenerTree.Walker} instance through which it is reached remains
      * unclosed.
+     */
+    /*
+     * FIXME: BUG-1511: split this class out as ListenerNode.
      */
     public static final class Node implements StoreTreeNode<Node>, Identifiable<PathArgument> {
         private final Collection<DataChangeListenerRegistration<?>> listeners = new ArrayList<>();
@@ -251,7 +257,7 @@ public final class ListenerTree  {
 
     }
 
-    private abstract static class DataChangeListenerRegistrationImpl<T extends AsyncDataChangeListener<InstanceIdentifier, NormalizedNode<?, ?>>> extends AbstractListenerRegistration<T> //
+    private abstract static class DataChangeListenerRegistrationImpl<T extends AsyncDataChangeListener<YangInstanceIdentifier, NormalizedNode<?, ?>>> extends AbstractListenerRegistration<T> //
     implements DataChangeListenerRegistration<T> {
         public DataChangeListenerRegistrationImpl(final T listener) {
             super(listener);

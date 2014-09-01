@@ -23,6 +23,7 @@
     <module>config-util</module>
     <module>config-persister-api</module>
     <module>config-persister-file-xml-adapter</module>
+    <module>config-persister-feature-adapter</module>
     <module>yang-jmx-generator</module>
     <module>yang-jmx-generator-plugin</module>
     <module>yang-test</module>
@@ -39,6 +40,7 @@
     <module>shutdown-impl</module>
     <module>netconf-config-dispatcher</module>
     <module>config-module-archetype</module>
+    <module>config-netty-config</module>
   </modules>
 
   <dependencies>
@@ -92,18 +94,6 @@
               <phase>package</phase>
             </execution>
           </executions>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <configuration>
-            <redirectTestOutputToFile>true</redirectTestOutputToFile>
-            <parallel>classes</parallel>
-            <forkCount>1C</forkCount>
-            <reuseForks>false</reuseForks>
-            <perCoreThreadCount>true</perCoreThreadCount>
-            <threadCount>2</threadCount>
-          </configuration>
         </plugin>
         <plugin>
           <groupId>org.codehaus.groovy.maven</groupId>

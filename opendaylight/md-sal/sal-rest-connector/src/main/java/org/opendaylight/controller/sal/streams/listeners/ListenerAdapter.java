@@ -38,17 +38,18 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
-import org.opendaylight.controller.md.sal.common.api.data.DataChangeEvent;
-import org.opendaylight.controller.sal.core.api.data.DataChangeListener;
+import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
+import org.opendaylight.controller.md.sal.dom.api.DOMDataChangeListener;
 import org.opendaylight.controller.sal.rest.impl.XmlMapper;
 import org.opendaylight.controller.sal.restconf.impl.ControllerContext;
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.common.QName;
 import org.opendaylight.yangtools.yang.data.api.CompositeNode;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.NodeIdentifierWithPredicates;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.NodeWithValue;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.NodeIdentifierWithPredicates;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.NodeWithValue;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.PathArgument;
+import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
 import org.opendaylight.yangtools.yang.model.api.DataNodeContainer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +60,7 @@ import org.w3c.dom.Node;
 /**
  * {@link ListenerAdapter} is responsible to track events, which occurred by changing data in data source.
  */
-public class ListenerAdapter implements DataChangeListener {
+public class ListenerAdapter implements DOMDataChangeListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(ListenerAdapter.class);
     private static final DocumentBuilderFactory DBF = DocumentBuilderFactory.newInstance();
@@ -69,8 +70,8 @@ public class ListenerAdapter implements DataChangeListener {
     private final XmlMapper xmlMapper = new XmlMapper();
     private final SimpleDateFormat rfc3339 = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ssZ");
 
-    private final InstanceIdentifier path;
-    private ListenerRegistration<DataChangeListener> registration;
+    private final YangInstanceIdentifier path;
+    private ListenerRegistration<DOMDataChangeListener> registration;
     private final String streamName;
     private Set<Channel> subscribers = new ConcurrentSet<>();
     private final EventBus eventBus;
@@ -84,7 +85,7 @@ public class ListenerAdapter implements DataChangeListener {
      * @param streamName
      *            The name of the stream.
      */
-    ListenerAdapter(final InstanceIdentifier path, final String streamName) {
+    ListenerAdapter(final YangInstanceIdentifier path, final String streamName) {
         Preconditions.checkNotNull(path);
         Preconditions.checkArgument(streamName != null && !streamName.isEmpty());
         this.path = path;
@@ -95,10 +96,11 @@ public class ListenerAdapter implements DataChangeListener {
     }
 
     @Override
-    public void onDataChanged(final DataChangeEvent<InstanceIdentifier, CompositeNode> change) {
-        if (!change.getCreatedConfigurationData().isEmpty() || !change.getCreatedOperationalData().isEmpty()
-                || !change.getUpdatedConfigurationData().isEmpty() || !change.getUpdatedOperationalData().isEmpty()
-                || !change.getRemovedConfigurationData().isEmpty() || !change.getRemovedOperationalData().isEmpty()) {
+    public void onDataChanged(AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>> change) {
+        // TODO Auto-generated method stub
+
+        if (!change.getCreatedData().isEmpty() || !change.getUpdatedData().isEmpty()
+                || !change.getRemovedPaths().isEmpty()) {
             String xml = prepareXmlFrom(change);
             Event event = new Event(EventType.NOTIFY);
             event.setData(xml);
@@ -216,7 +218,7 @@ public class ListenerAdapter implements DataChangeListener {
      *            DataChangeEvent
      * @return Data in printable form.
      */
-    private String prepareXmlFrom(final DataChangeEvent<InstanceIdentifier, CompositeNode> change) {
+    private String prepareXmlFrom(AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>> change) {
         Document doc = createDocument();
         Element notificationElement = doc.createElementNS("urn:ietf:params:xml:ns:netconf:notification:1.0",
                 "notification");
@@ -262,7 +264,6 @@ public class ListenerAdapter implements DataChangeListener {
 
     /**
      * Creates {@link Document} document.
-     *
      * @return {@link Document} document.
      */
     private Document createDocument() {
@@ -287,23 +288,15 @@ public class ListenerAdapter implements DataChangeListener {
      */
     private void addValuesToDataChangedNotificationEventElement(final Document doc,
             final Element dataChangedNotificationEventElement,
-            final DataChangeEvent<InstanceIdentifier, CompositeNode> change) {
-        addValuesFromDataToElement(doc, change.getCreatedConfigurationData(), dataChangedNotificationEventElement,
-                Store.CONFIG, Operation.CREATED);
-        addValuesFromDataToElement(doc, change.getCreatedOperationalData(), dataChangedNotificationEventElement,
-                Store.OPERATION, Operation.CREATED);
-        if (change.getCreatedConfigurationData().isEmpty()) {
-            addValuesFromDataToElement(doc, change.getUpdatedConfigurationData(), dataChangedNotificationEventElement,
-                    Store.CONFIG, Operation.UPDATED);
+            AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>> change) {
+        addValuesFromDataToElement(doc, change.getCreatedData().keySet(), dataChangedNotificationEventElement,
+                Operation.CREATED);
+        if (change.getCreatedData().isEmpty()) {
+            addValuesFromDataToElement(doc, change.getUpdatedData().keySet(), dataChangedNotificationEventElement,
+                    Operation.UPDATED);
         }
-        if (change.getCreatedOperationalData().isEmpty()) {
-            addValuesFromDataToElement(doc, change.getUpdatedOperationalData(), dataChangedNotificationEventElement,
-                    Store.OPERATION, Operation.UPDATED);
-        }
-        addValuesFromDataToElement(doc, change.getRemovedConfigurationData(), dataChangedNotificationEventElement,
-                Store.CONFIG, Operation.DELETED);
-        addValuesFromDataToElement(doc, change.getRemovedOperationalData(), dataChangedNotificationEventElement,
-                Store.OPERATION, Operation.DELETED);
+        addValuesFromDataToElement(doc, change.getRemovedPaths(), dataChangedNotificationEventElement,
+                Operation.DELETED);
     }
 
     /**
@@ -312,7 +305,7 @@ public class ListenerAdapter implements DataChangeListener {
      * @param doc
      *            {@link Document}
      * @param data
-     *            Set of {@link InstanceIdentifier}.
+     *            Set of {@link YangInstanceIdentifier}.
      * @param element
      *            {@link Element}
      * @param store
@@ -320,13 +313,13 @@ public class ListenerAdapter implements DataChangeListener {
      * @param operation
      *            {@link Operation}
      */
-    private void addValuesFromDataToElement(final Document doc, final Set<InstanceIdentifier> data,
-            final Element element, final Store store, final Operation operation) {
+    private void addValuesFromDataToElement(Document doc, Set<YangInstanceIdentifier> data, Element element,
+            Operation operation) {
         if (data == null || data.isEmpty()) {
             return;
         }
-        for (InstanceIdentifier path : data) {
-            Node node = createDataChangeEventElement(doc, path, null, store, operation);
+        for (YangInstanceIdentifier path : data) {
+            Node node = createDataChangeEventElement(doc, path, null, operation);
             element.appendChild(node);
         }
     }
@@ -337,7 +330,7 @@ public class ListenerAdapter implements DataChangeListener {
      * @param doc
      *            {@link Document}
      * @param data
-     *            Map of {@link InstanceIdentifier} and {@link CompositeNode}.
+     *            Map of {@link YangInstanceIdentifier} and {@link CompositeNode}.
      * @param element
      *            {@link Element}
      * @param store
@@ -345,13 +338,13 @@ public class ListenerAdapter implements DataChangeListener {
      * @param operation
      *            {@link Operation}
      */
-    private void addValuesFromDataToElement(final Document doc, final Map<InstanceIdentifier, CompositeNode> data,
-            final Element element, final Store store, final Operation operation) {
+    private void addValuesFromDataToElement(Document doc, Map<YangInstanceIdentifier, CompositeNode> data, Element element,
+            Operation operation) {
         if (data == null || data.isEmpty()) {
             return;
         }
-        for (Entry<InstanceIdentifier, CompositeNode> entry : data.entrySet()) {
-            Node node = createDataChangeEventElement(doc, entry.getKey(), entry.getValue(), store, operation);
+        for (Entry<YangInstanceIdentifier, CompositeNode> entry : data.entrySet()) {
+            Node node = createDataChangeEventElement(doc, entry.getKey(), entry.getValue(), operation);
             element.appendChild(node);
         }
     }
@@ -371,17 +364,17 @@ public class ListenerAdapter implements DataChangeListener {
      *            {@link Operation}
      * @return {@link Node} node represented by changed event element.
      */
-    private Node createDataChangeEventElement(final Document doc, final InstanceIdentifier path,
-            final CompositeNode data, final Store store, final Operation operation) {
+    private Node createDataChangeEventElement(Document doc, YangInstanceIdentifier path, CompositeNode data,
+            Operation operation) {
         Element dataChangeEventElement = doc.createElement("data-change-event");
 
         Element pathElement = doc.createElement("path");
         addPathAsValueToElement(path, pathElement);
         dataChangeEventElement.appendChild(pathElement);
 
-        Element storeElement = doc.createElement("store");
-        storeElement.setTextContent(store.value);
-        dataChangeEventElement.appendChild(storeElement);
+        // Element storeElement = doc.createElement("store");
+        // storeElement.setTextContent(store.value);
+        // dataChangeEventElement.appendChild(storeElement);
 
         Element operationElement = doc.createElement("operation");
         operationElement.setTextContent(operation.value);
@@ -407,7 +400,7 @@ public class ListenerAdapter implements DataChangeListener {
      *            {@link CompositeNode}
      * @return Data in XML format.
      */
-    private Node translateToXml(final InstanceIdentifier path, final CompositeNode data) {
+    private Node translateToXml(final YangInstanceIdentifier path, final CompositeNode data) {
         DataNodeContainer schemaNode = ControllerContext.getInstance().getDataNodeContainerFor(path);
         if (schemaNode == null) {
             LOG.info(
@@ -432,10 +425,10 @@ public class ListenerAdapter implements DataChangeListener {
      * @param element
      *            {@link Element}
      */
-    private void addPathAsValueToElement(final InstanceIdentifier path, final Element element) {
+    private void addPathAsValueToElement(final YangInstanceIdentifier path, final Element element) {
         // Map< key = namespace, value = prefix>
         Map<String, String> prefixes = new HashMap<>();
-        InstanceIdentifier instanceIdentifier = path;
+        YangInstanceIdentifier instanceIdentifier = path;
         StringBuilder textContent = new StringBuilder();
 
         // FIXME: BUG-1281: this is duplicated code from yangtools (BUG-1275)
@@ -520,7 +513,7 @@ public class ListenerAdapter implements DataChangeListener {
      *
      * @return Path pointed to data in data store.
      */
-    public InstanceIdentifier getPath() {
+    public YangInstanceIdentifier getPath() {
         return path;
     }
 
@@ -530,7 +523,7 @@ public class ListenerAdapter implements DataChangeListener {
      * @param registration
      *            ListenerRegistration<DataChangeListener>
      */
-    public void setRegistration(final ListenerRegistration<DataChangeListener> registration) {
+    public void setRegistration(final ListenerRegistration<DOMDataChangeListener> registration) {
         this.registration = registration;
     }
 

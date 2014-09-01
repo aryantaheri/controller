@@ -13,9 +13,9 @@ import com.google.common.base.Preconditions;
 /**
  * The FindPrimary message is used to locate the primary of any given shard
  *
- * TODO : Make this serializable
  */
-public class FindPrimary{
+public class FindPrimary implements SerializableMessage{
+  public static final Class SERIALIZABLE_CLASS = FindPrimary.class;
     private final String shardName;
 
     public FindPrimary(String shardName){
@@ -28,4 +28,13 @@ public class FindPrimary{
     public String getShardName() {
         return shardName;
     }
+
+  @Override
+  public Object toSerializable() {
+    return this;
+  }
+
+  public static FindPrimary fromSerializable(Object message){
+    return (FindPrimary) message;
+  }
 }

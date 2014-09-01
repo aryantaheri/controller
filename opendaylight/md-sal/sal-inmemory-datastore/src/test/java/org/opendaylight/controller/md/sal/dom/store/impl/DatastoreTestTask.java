@@ -8,9 +8,11 @@
 package org.opendaylight.controller.md.sal.dom.store.impl;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataBroker.DataChangeScope;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
@@ -20,7 +22,7 @@ import org.opendaylight.controller.sal.core.spi.data.DOMStoreReadTransaction;
 import org.opendaylight.controller.sal.core.spi.data.DOMStoreReadWriteTransaction;
 import org.opendaylight.controller.sal.core.spi.data.DOMStoreThreePhaseCommitCohort;
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
 import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
 
 import com.google.common.base.Preconditions;
@@ -29,31 +31,33 @@ import com.google.common.util.concurrent.SettableFuture;
 public class DatastoreTestTask {
 
     private final DOMStore store;
-    private AsyncDataChangeListener<InstanceIdentifier, NormalizedNode<?, ?>> changeListener;
+    private AsyncDataChangeListener<YangInstanceIdentifier, NormalizedNode<?, ?>> changeListener;
 
     private WriteTransactionCustomizer setup;
     private WriteTransactionCustomizer write;
     private ReadTransactionVerifier read;
     private WriteTransactionCustomizer cleanup;
-    private InstanceIdentifier changePath;
+    private YangInstanceIdentifier changePath;
     private DataChangeScope changeScope;
-    private boolean postSetup = false;
+    private volatile boolean postSetup = false;
     private final ChangeEventListener internalListener;
+    private final TestDCLExecutorService dclExecutorService;
 
-    public DatastoreTestTask(final DOMStore datastore) {
+    public DatastoreTestTask(final DOMStore datastore, final TestDCLExecutorService dclExecutorService) {
         this.store = datastore;
+        this.dclExecutorService = dclExecutorService;
         internalListener = new ChangeEventListener();
     }
 
-    public DatastoreTestTask changeListener(final InstanceIdentifier path, final DataChangeScope scope,
-            final AsyncDataChangeListener<InstanceIdentifier, NormalizedNode<?, ?>> changeListener) {
+    public DatastoreTestTask changeListener(final YangInstanceIdentifier path, final DataChangeScope scope,
+            final AsyncDataChangeListener<YangInstanceIdentifier, NormalizedNode<?, ?>> changeListener) {
         this.changeListener = changeListener;
         this.changePath = path;
         this.changeScope = scope;
         return this;
     }
 
-    public DatastoreTestTask changeListener(final InstanceIdentifier path, final DataChangeScope scope) {
+    public DatastoreTestTask changeListener(final YangInstanceIdentifier path, final DataChangeScope scope) {
         this.changePath = path;
         this.changeScope = scope;
         return this;
@@ -79,7 +83,7 @@ public class DatastoreTestTask {
         return this;
     }
 
-    public void run() throws InterruptedException, ExecutionException {
+    public void run() throws InterruptedException, ExecutionException, TimeoutException {
         if (setup != null) {
             execute(setup);
         }
@@ -89,13 +93,17 @@ public class DatastoreTestTask {
         }
 
         Preconditions.checkState(write != null, "Write Transaction must be set.");
+
         postSetup = true;
+        dclExecutorService.afterTestSetup();
+
         execute(write);
         if (registration != null) {
             registration.close();
         }
+
         if (changeListener != null) {
-            changeListener.onDataChanged(internalListener.receivedChange.get());
+            changeListener.onDataChanged(getChangeEvent());
         }
         if (read != null) {
             read.verify(store.newReadOnlyTransaction());
@@ -105,8 +113,26 @@ public class DatastoreTestTask {
         }
     }
 
-    public Future<AsyncDataChangeEvent<InstanceIdentifier, NormalizedNode<?, ?>>> getChangeEvent() {
-        return internalListener.receivedChange;
+    public AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>> getChangeEvent() {
+        try {
+            return internalListener.receivedChange.get(10, TimeUnit.SECONDS);
+        } catch( Exception e ) {
+            fail( "Error getting the AsyncDataChangeEvent from the Future: " + e );
+        }
+
+        // won't get here
+        return null;
+    }
+
+    public void verifyNoChangeEvent() {
+        try {
+            Object unexpected = internalListener.receivedChange.get(500, TimeUnit.MILLISECONDS);
+            fail( "Got unexpected AsyncDataChangeEvent from the Future: " + unexpected );
+        } catch( TimeoutException e ) {
+            // Expected
+        } catch( Exception e ) {
+            fail( "Error getting the AsyncDataChangeEvent from the Future: " + e );
+        }
     }
 
     private void execute(final WriteTransactionCustomizer writeCustomizer) throws InterruptedException,
@@ -128,20 +154,20 @@ public class DatastoreTestTask {
     }
 
     private final class ChangeEventListener implements
-            AsyncDataChangeListener<InstanceIdentifier, NormalizedNode<?, ?>> {
+            AsyncDataChangeListener<YangInstanceIdentifier, NormalizedNode<?, ?>> {
 
-        protected final SettableFuture<AsyncDataChangeEvent<InstanceIdentifier, NormalizedNode<?, ?>>> receivedChange = SettableFuture
+        protected final SettableFuture<AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>>> receivedChange = SettableFuture
                 .create();
 
         @Override
-        public void onDataChanged(final AsyncDataChangeEvent<InstanceIdentifier, NormalizedNode<?, ?>> change) {
+        public void onDataChanged(final AsyncDataChangeEvent<YangInstanceIdentifier, NormalizedNode<?, ?>> change) {
             if (postSetup) {
                 receivedChange.set(change);
             }
         }
     }
 
-    public static final WriteTransactionCustomizer simpleWrite(final InstanceIdentifier path,
+    public static final WriteTransactionCustomizer simpleWrite(final YangInstanceIdentifier path,
             final NormalizedNode<?, ?> data) {
         return new WriteTransactionCustomizer() {
 
@@ -152,7 +178,7 @@ public class DatastoreTestTask {
         };
     }
 
-    public static final WriteTransactionCustomizer simpleMerge(final InstanceIdentifier path,
+    public static final WriteTransactionCustomizer simpleMerge(final YangInstanceIdentifier path,
             final NormalizedNode<?, ?> data) {
         return new WriteTransactionCustomizer() {
 
@@ -163,7 +189,7 @@ public class DatastoreTestTask {
         };
     }
 
-    public static final WriteTransactionCustomizer simpleDelete(final InstanceIdentifier path) {
+    public static final WriteTransactionCustomizer simpleDelete(final YangInstanceIdentifier path) {
         return new WriteTransactionCustomizer() {
             @Override
             public void customize(final DOMStoreReadWriteTransaction tx) {

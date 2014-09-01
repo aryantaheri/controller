@@ -9,17 +9,18 @@ package org.opendaylight.md.controller.topology.manager;
 
 import java.util.concurrent.ExecutionException;
 
+import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.controller.md.sal.binding.api.ReadWriteTransaction;
+import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.controller.sal.binding.api.AbstractBindingAwareProvider;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker.ProviderContext;
 import org.opendaylight.controller.sal.binding.api.NotificationProviderService;
-import org.opendaylight.controller.sal.binding.api.data.DataModificationTransaction;
-import org.opendaylight.controller.sal.binding.api.data.DataProviderService;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NetworkTopology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TopologyId;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.Topology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.TopologyBuilder;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.TopologyKey;
-import org.opendaylight.yangtools.concepts.Registration;
+import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.binding.NotificationListener;
 import org.osgi.framework.BundleContext;
@@ -28,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 public class FlowCapableTopologyProvider extends AbstractBindingAwareProvider implements AutoCloseable {
     private final static Logger LOG = LoggerFactory.getLogger(FlowCapableTopologyProvider.class);
-    private Registration<NotificationListener> listenerRegistration;
+    private ListenerRegistration<NotificationListener> listenerRegistration;
     private Thread thread;
 
     /**
@@ -38,24 +39,23 @@ public class FlowCapableTopologyProvider extends AbstractBindingAwareProvider im
      */
     @Override
     public synchronized void onSessionInitiated(final ProviderContext session) {
-        final DataProviderService dataService = session.getSALService(DataProviderService.class);
+        final DataBroker dataBroker = session.getSALService(DataBroker.class);
         final NotificationProviderService notificationService = session.getSALService(NotificationProviderService.class);
 
         final String name = "flow:1";
         final TopologyKey key = new TopologyKey(new TopologyId(name));
         final InstanceIdentifier<Topology> path = InstanceIdentifier
-                .builder(NetworkTopology.class)
-                .child(Topology.class, key)
-                .build();
+                .create(NetworkTopology.class)
+                .child(Topology.class, key);
 
-        final OperationProcessor processor = new OperationProcessor(dataService);
+        final OperationProcessor processor = new OperationProcessor(dataBroker);
         final FlowCapableTopologyExporter listener = new FlowCapableTopologyExporter(processor, path);
         this.listenerRegistration = notificationService.registerNotificationListener(listener);
 
-        final DataModificationTransaction tx = dataService.beginTransaction();
-        tx.putOperationalData(path, new TopologyBuilder().setKey(key).build());
+        final ReadWriteTransaction tx = dataBroker.newReadWriteTransaction();
+        tx.put(LogicalDatastoreType.OPERATIONAL, path, new TopologyBuilder().setKey(key).build(), true);
         try {
-            tx.commit().get();
+            tx.submit().get();
         } catch (InterruptedException | ExecutionException e) {
             LOG.warn("Initial topology export failed, continuing anyway", e);
         }
@@ -87,8 +87,7 @@ public class FlowCapableTopologyProvider extends AbstractBindingAwareProvider im
     /**
      * Gets called during stop bundle
      *
-     * @param context
-     *            The execution context of the bundle being stopped.
+     * @param context The execution context of the bundle being stopped.
      */
     @Override
     public void stopImpl(final BundleContext context) {

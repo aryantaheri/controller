@@ -46,4 +46,44 @@ public class NeutronCRUDInterfaces {
         INeutronSecurityRuleCRUD answer = (INeutronSecurityRuleCRUD) ServiceHelper.getGlobalInstance(INeutronSecurityRuleCRUD.class, o);
         return answer;
     }
+
+    public static INeutronFirewallCRUD getINeutronFirewallCRUD(Object o) {
+        INeutronFirewallCRUD answer = (INeutronFirewallCRUD) ServiceHelper.getGlobalInstance(INeutronFirewallCRUD.class, o);
+        return answer;
+    }
+
+    public static INeutronFirewallPolicyCRUD getINeutronFirewallPolicyCRUD(Object o) {
+        INeutronFirewallPolicyCRUD answer = (INeutronFirewallPolicyCRUD) ServiceHelper.getGlobalInstance(INeutronFirewallPolicyCRUD.class, o);
+        return answer;
+    }
+
+    public static INeutronFirewallRuleCRUD getINeutronFirewallRuleCRUD(Object o) {
+        INeutronFirewallRuleCRUD answer = (INeutronFirewallRuleCRUD) ServiceHelper.getGlobalInstance(INeutronFirewallRuleCRUD.class, o);
+        return answer;
+    }
+
+    public static INeutronLoadBalancerCRUD getINeutronLoadBalancerCRUD(Object o) {
+        INeutronLoadBalancerCRUD answer = (INeutronLoadBalancerCRUD) ServiceHelper.getGlobalInstance(INeutronLoadBalancerCRUD.class, o);
+        return answer;
+    }
+
+    public static INeutronLoadBalancerPoolCRUD getINeutronLoadBalancerPoolCRUD(Object o) {
+        INeutronLoadBalancerPoolCRUD answer = (INeutronLoadBalancerPoolCRUD) ServiceHelper.getGlobalInstance(INeutronLoadBalancerPoolCRUD.class, o);
+        return answer;
+    }
+
+    public static INeutronLoadBalancerListenerCRUD getINeutronLoadBalancerListenerCRUD(Object o) {
+        INeutronLoadBalancerListenerCRUD answer = (INeutronLoadBalancerListenerCRUD) ServiceHelper.getGlobalInstance(INeutronLoadBalancerListenerCRUD.class, o);
+        return answer;
+    }
+
+    public static INeutronLoadBalancerHealthMonitorCRUD getINeutronLoadBalancerHealthMonitorCRUD(Object o) {
+        INeutronLoadBalancerHealthMonitorCRUD answer = (INeutronLoadBalancerHealthMonitorCRUD) ServiceHelper.getGlobalInstance(INeutronLoadBalancerHealthMonitorCRUD.class, o);
+        return answer;
+    }
+
+    public static INeutronLoadBalancerPoolMemberCRUD getINeutronLoadBalancerPoolMemberCRUD(Object o) {
+        INeutronLoadBalancerPoolMemberCRUD answer = (INeutronLoadBalancerPoolMemberCRUD) ServiceHelper.getGlobalInstance(INeutronLoadBalancerPoolMemberCRUD.class, o);
+        return answer;
+    }
 }

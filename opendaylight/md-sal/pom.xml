@@ -32,6 +32,9 @@
 
     <module>sal-binding-util</module>
 
+    <!-- Configuration File -->
+    <module>md-sal-config</module>
+
     <!-- Samples -->
     <module>samples</module>
 
@@ -43,6 +46,7 @@
     <!-- Connectors -->
     <module>sal-connector-api</module>
     <module>sal-rest-connector</module>
+    <module>sal-rest-connector-config</module>
     <module>sal-netconf-connector</module>
 
     <module>inventory-manager</module>
@@ -57,14 +61,29 @@
     <!-- Documentation -->
     <module>sal-rest-docgen</module>
 
+    <module>sal-akka-raft</module>
+
     <!--InMemory DOM DataStore-->
     <module>sal-inmemory-datastore</module>
 
-    <!--sal-protocolbuffer-encoding-->
-    <module>sal-protocolbuffer-encoding</module>
+    <!--sal-protocolbuffer-encoding is now part of sal-clutering-commons-->
+    <module>sal-clustering-commons</module>
+
+    <!-- sal clustering configuration -->
+    <module>sal-clustering-config</module>
+
+    <!-- sal-distributed-datastore -->
+    <module>sal-distributed-datastore</module>
+
+    <!-- XSQL -->
+    <module>sal-dom-xsql</module>
 
     <!-- Yang Test Models for MD-SAL -->
     <module>sal-test-model</module>
+
+    <!-- Clustering -->
+    <module>sal-remoterpc-connector</module>
+    <module>sal-dom-xsql-config</module>
   </modules>
 
   <build>
@@ -105,7 +124,7 @@
                     </goals>
                   </pluginExecutionFilter>
                   <action>
-                    <ignore></ignore>
+                    <ignore/>
                   </action>
                 </pluginExecution>
                 <pluginExecution>
@@ -118,7 +137,7 @@
                     </goals>
                   </pluginExecutionFilter>
                   <action>
-                    <ignore></ignore>
+                    <ignore/>
                   </action>
                 </pluginExecution>
               </pluginExecutions>

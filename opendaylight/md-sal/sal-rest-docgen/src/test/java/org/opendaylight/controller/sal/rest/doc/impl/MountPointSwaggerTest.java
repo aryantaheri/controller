@@ -14,12 +14,11 @@ import static org.mockito.Mockito.when;
 
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-
 import javax.ws.rs.core.UriInfo;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.opendaylight.controller.sal.core.api.model.SchemaService;
@@ -32,24 +31,28 @@ import org.opendaylight.controller.sal.rest.doc.swagger.Operation;
 import org.opendaylight.controller.sal.rest.doc.swagger.Resource;
 import org.opendaylight.controller.sal.rest.doc.swagger.ResourceList;
 import org.opendaylight.yangtools.yang.common.QName;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
+import org.opendaylight.yangtools.yang.model.api.Module;
 import org.opendaylight.yangtools.yang.model.api.SchemaContext;
+import org.opendaylight.yangtools.yang.parser.impl.YangParserImpl;
 
 public class MountPointSwaggerTest {
 
     private static final String HTTP_URL = "http://localhost/path";
-    private static final InstanceIdentifier instanceId = InstanceIdentifier.builder()
+    private static final YangInstanceIdentifier instanceId = YangInstanceIdentifier.builder()
             .node(QName.create("nodes"))
             .nodeWithKey(QName.create("node"), QName.create("id"), "123").build();
     private static final String INSTANCE_URL = "nodes/node/123/";
     private MountPointSwagger swagger;
     private DocGenTestHelper helper;
+    private SchemaContext schemaContext;
 
     @Before
     public void setUp() throws Exception {
         swagger = new MountPointSwagger();
         helper = new DocGenTestHelper();
         helper.setUp();
+        schemaContext = new YangParserImpl().resolveSchemaContext(new HashSet<Module>(helper.getModules().values()));
     }
 
     @Test()

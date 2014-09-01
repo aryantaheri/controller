@@ -38,6 +38,7 @@ import org.opendaylight.controller.config.yangjmxgenerator.attribute.ListAttribu
 import org.opendaylight.controller.config.yangjmxgenerator.attribute.ListDependenciesAttribute;
 import org.opendaylight.controller.config.yangjmxgenerator.attribute.TOAttribute;
 import org.opendaylight.controller.config.yangjmxgenerator.plugin.util.NameConflictException;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.controller.config.rev130405.ServiceRef;
 import org.opendaylight.yangtools.yang.common.QName;
 import org.opendaylight.yangtools.yang.model.api.AugmentationSchema;
 import org.opendaylight.yangtools.yang.model.api.ChoiceCaseNode;
@@ -130,7 +131,7 @@ final class ModuleMXBeanEntryBuilder {
         Map<String, ModuleMXBeanEntry> result = new HashMap<>();
 
         for (AugmentationSchema augmentation : currentModule.getAugmentations()) {
-            Set<DataSchemaNode> childNodes = augmentation.getChildNodes();
+            Collection<DataSchemaNode> childNodes = augmentation.getChildNodes();
             if (areAllChildrenChoiceCaseNodes(childNodes)) {
                 for (ChoiceCaseNode childCase : castChildNodesToChoiceCases(childNodes)) {
                     // TODO refactor, extract to standalone builder class
@@ -215,7 +216,7 @@ final class ModuleMXBeanEntryBuilder {
         return moduleIdentities;
     }
 
-    private Collection<ChoiceCaseNode> castChildNodesToChoiceCases(final Set<DataSchemaNode> childNodes) {
+    private Collection<ChoiceCaseNode> castChildNodesToChoiceCases(final Collection<DataSchemaNode> childNodes) {
         return Collections2.transform(childNodes, new Function<DataSchemaNode, ChoiceCaseNode>() {
             @Nullable
             @Override
@@ -225,7 +226,7 @@ final class ModuleMXBeanEntryBuilder {
         });
     }
 
-    private boolean areAllChildrenChoiceCaseNodes(final Set<DataSchemaNode> childNodes) {
+    private boolean areAllChildrenChoiceCaseNodes(final Iterable<DataSchemaNode> childNodes) {
         for (DataSchemaNode childNode : childNodes) {
             if (childNode instanceof ChoiceCaseNode == false) {
                 return false;
@@ -388,7 +389,7 @@ final class ModuleMXBeanEntryBuilder {
      * @return either choiceCaseNode or its only child container
      */
     private <HAS_CHILDREN_AND_QNAME extends DataNodeContainer & SchemaNode> HAS_CHILDREN_AND_QNAME getDataNodeContainer(final ChoiceCaseNode choiceCaseNode) {
-        Set<DataSchemaNode> childNodes = choiceCaseNode.getChildNodes();
+        Collection<DataSchemaNode> childNodes = choiceCaseNode.getChildNodes();
         if (childNodes.size() == 1) {
             DataSchemaNode onlyChild = childNodes.iterator().next();
             if (onlyChild instanceof ContainerSchemaNode) {
@@ -406,8 +407,7 @@ final class ModuleMXBeanEntryBuilder {
             final TypeProviderWrapper typeProviderWrapper, final Map<QName, ServiceInterfaceEntry> qNamesToSIEs,
             final SchemaContext schemaContext, final String packageName) {
         Map<String, AttributeIfc> yangToAttributes = new HashMap<>();
-        Set<DataSchemaNode> childNodes = dataNodeContainer.getChildNodes();
-        for (DataSchemaNode attrNode : childNodes) {
+        for (DataSchemaNode attrNode : dataNodeContainer.getChildNodes()) {
             AttributeIfc attributeValue = getAttributeValue(attrNode, currentModule, qNamesToSIEs, typeProviderWrapper,
                     schemaContext, packageName);
             yangToAttributes.put(attributeValue.getAttributeYangName(), attributeValue);
@@ -467,7 +467,7 @@ final class ModuleMXBeanEntryBuilder {
     private Optional<? extends AbstractDependencyAttribute> extractDependency(final DataNodeContainer dataNodeContainer,
             final DataSchemaNode attrNode, final Module currentModule, final Map<QName, ServiceInterfaceEntry> qNamesToSIEs,
             final SchemaContext schemaContext) {
-        if (dataNodeContainer.getUses().size() == 1 && getChildNodeSizeWithoutUses(dataNodeContainer) == 0) {
+        if (isDependencyContainer(dataNodeContainer)) {
             // reference
             UsesNode usesNode = dataNodeContainer.getUses().iterator().next();
             checkState(usesNode.getRefines().size() == 1, "Unexpected 'refine' child node size of " + dataNodeContainer);
@@ -492,6 +492,18 @@ final class ModuleMXBeanEntryBuilder {
             return Optional.of(reference);
         }
         return Optional.absent();
+    }
+
+    private boolean isDependencyContainer(final DataNodeContainer dataNodeContainer) {
+        if(dataNodeContainer.getUses().size() != 1) {
+            return false;
+        }
+        UsesNode onlyUses = dataNodeContainer.getUses().iterator().next();
+        if(onlyUses.getGroupingPath().getLastComponent().equals(ServiceRef.QNAME) == false) {
+            return false;
+        }
+
+        return getChildNodeSizeWithoutUses(dataNodeContainer) == 0;
     }
 
     private int getChildNodeSizeWithoutUses(final DataNodeContainer csn) {

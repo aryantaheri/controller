@@ -16,7 +16,7 @@ import org.opendaylight.controller.md.sal.dom.api.DOMDataWriteTransaction;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.Identifiable;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.PathArgument;
 import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +30,7 @@ import com.google.common.util.concurrent.CheckedFuture;
  * Abstract Base Transaction for transactions which are backed by
  * {@link DOMDataWriteTransaction}
  */
-public class AbstractWriteTransaction<T extends DOMDataWriteTransaction> extends
+public abstract class AbstractWriteTransaction<T extends DOMDataWriteTransaction> extends
         AbstractForwardedTransaction<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractWriteTransaction.class);
@@ -40,12 +40,33 @@ public class AbstractWriteTransaction<T extends DOMDataWriteTransaction> extends
         super(delegate, codec);
     }
 
-    protected final void doPut(final LogicalDatastoreType store,
-            final InstanceIdentifier<?> path, final DataObject data) {
-       final Entry<org.opendaylight.yangtools.yang.data.api.InstanceIdentifier, NormalizedNode<?, ?>> normalized = getCodec()
+
+    public final <U extends DataObject> void put(final LogicalDatastoreType store,
+            final InstanceIdentifier<U> path, final U data, final boolean createParents) {
+       final Entry<org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier, NormalizedNode<?, ?>> normalized = getCodec()
                 .toNormalizedNode(path, data);
-        ensureListParentIfNeeded(store,path,normalized);
+        if(createParents) {
+            ensureParentsByMerge(store, normalized.getKey(), path);
+        } else {
+            ensureListParentIfNeeded(store,path,normalized);
+        }
         getDelegate().put(store, normalized.getKey(), normalized.getValue());
+    }
+
+
+    public final <U extends DataObject> void merge(final LogicalDatastoreType store,
+            final InstanceIdentifier<U> path, final U data,final boolean createParents) {
+
+        final Entry<org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier, NormalizedNode<?, ?>> normalized = getCodec()
+                .toNormalizedNode(path, data);
+
+        if(createParents) {
+            ensureParentsByMerge(store, normalized.getKey(), path);
+        } else {
+            ensureListParentIfNeeded(store,path,normalized);
+        }
+
+        getDelegate().merge(store, normalized.getKey(), normalized.getValue());
     }
 
 
@@ -82,9 +103,9 @@ public class AbstractWriteTransaction<T extends DOMDataWriteTransaction> extends
      * @param normalized Normalized version of data to be written
      */
     private void ensureListParentIfNeeded(final LogicalDatastoreType store, final InstanceIdentifier<?> path,
-            final Entry<org.opendaylight.yangtools.yang.data.api.InstanceIdentifier, NormalizedNode<?, ?>> normalized) {
+            final Entry<org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier, NormalizedNode<?, ?>> normalized) {
         if(Identifiable.class.isAssignableFrom(path.getTargetType())) {
-            org.opendaylight.yangtools.yang.data.api.InstanceIdentifier parentMapPath = getParent(normalized.getKey()).get();
+            org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier parentMapPath = getParent(normalized.getKey()).get();
             NormalizedNode<?, ?> emptyParent = getCodec().getDefaultNodeFor(parentMapPath);
             getDelegate().merge(store, parentMapPath, emptyParent);
         }
@@ -92,32 +113,34 @@ public class AbstractWriteTransaction<T extends DOMDataWriteTransaction> extends
     }
 
     // FIXME (should be probaly part of InstanceIdentifier)
-    protected static Optional<org.opendaylight.yangtools.yang.data.api.InstanceIdentifier> getParent(
-            final org.opendaylight.yangtools.yang.data.api.InstanceIdentifier child) {
+    protected static Optional<org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier> getParent(
+            final org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier child) {
 
         Iterable<PathArgument> mapEntryItemPath = child.getPathArguments();
         int parentPathSize = Iterables.size(mapEntryItemPath) - 1;
         if(parentPathSize > 1) {
-            return Optional.of(org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.create(Iterables.limit(mapEntryItemPath,  parentPathSize)));
+            return Optional.of(org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.create(Iterables.limit(mapEntryItemPath,  parentPathSize)));
         } else if(parentPathSize == 0) {
-            return Optional.of(org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.create(Collections.<PathArgument>emptyList()));
+            return Optional.of(org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.create(Collections.<PathArgument>emptyList()));
         } else {
             return Optional.absent();
         }
     }
 
-    protected final void doMerge(final LogicalDatastoreType store,
-            final InstanceIdentifier<?> path, final DataObject data) {
-
-        final Entry<org.opendaylight.yangtools.yang.data.api.InstanceIdentifier, NormalizedNode<?, ?>> normalized = getCodec()
-                .toNormalizedNode(path, data);
-        ensureListParentIfNeeded(store,path,normalized);
-        getDelegate().merge(store, normalized.getKey(), normalized.getValue());
-    }
+    /**
+     * Subclasses of this class are required to implement creation of parent
+     * nodes based on behaviour of their underlying transaction.
+     *
+     * @param store
+     * @param key
+     * @param path
+     */
+    protected abstract void ensureParentsByMerge(LogicalDatastoreType store,
+            org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier key, InstanceIdentifier<?> path);
 
     protected final void doDelete(final LogicalDatastoreType store,
             final InstanceIdentifier<?> path) {
-        final org.opendaylight.yangtools.yang.data.api.InstanceIdentifier normalized = getCodec().toNormalized(path);
+        final org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier normalized = getCodec().toNormalized(path);
         getDelegate().delete(store, normalized);
     }
 

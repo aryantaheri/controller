@@ -8,7 +8,9 @@
 
 package org.opendaylight.controller.cluster.datastore.messages;
 
-public class PrimaryFound {
+
+public class PrimaryFound implements SerializableMessage {
+  public static final Class SERIALIZABLE_CLASS = PrimaryFound.class;
   private final String primaryPath;
 
   public PrimaryFound(String primaryPath) {
@@ -44,4 +46,12 @@ public class PrimaryFound {
   }
 
 
+  @Override
+  public Object toSerializable() {
+    return  this;
+  }
+
+  public static PrimaryFound fromSerializable(Object message){
+    return (PrimaryFound) message;
+  }
 }

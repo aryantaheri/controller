@@ -8,7 +8,7 @@
 package org.opendaylight.controller.md.sal.dom.store.impl;
 
 import org.opendaylight.yangtools.yang.common.QName;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
 import org.opendaylight.yangtools.yang.model.api.Module;
 import org.opendaylight.yangtools.yang.model.api.SchemaContext;
 import org.opendaylight.yangtools.yang.parser.impl.YangParserImpl;
@@ -21,6 +21,8 @@ public class TestModel {
 
     public static final QName TEST_QNAME = QName.create("urn:opendaylight:params:xml:ns:yang:controller:md:sal:dom:store:test", "2014-03-13",
             "test");
+    public static final QName TEST2_QNAME = QName.create("urn:opendaylight:params:xml:ns:yang:controller:md:sal:dom:store:test", "2014-03-13",
+            "test2");
     public static final QName OUTER_LIST_QNAME = QName.create(TEST_QNAME, "outer-list");
     public static final QName INNER_LIST_QNAME = QName.create(TEST_QNAME, "inner-list");
     public static final QName OUTER_CHOICE_QNAME = QName.create(TEST_QNAME, "outer-choice");
@@ -29,8 +31,9 @@ public class TestModel {
     public static final QName VALUE_QNAME = QName.create(TEST_QNAME, "value");
     private static final String DATASTORE_TEST_YANG = "/odl-datastore-test.yang";
 
-    public static final InstanceIdentifier TEST_PATH = InstanceIdentifier.of(TEST_QNAME);
-    public static final InstanceIdentifier OUTER_LIST_PATH = InstanceIdentifier.builder(TEST_PATH).node(OUTER_LIST_QNAME).build();
+    public static final YangInstanceIdentifier TEST_PATH = YangInstanceIdentifier.of(TEST_QNAME);
+    public static final YangInstanceIdentifier TEST2_PATH = YangInstanceIdentifier.of(TEST2_QNAME);
+    public static final YangInstanceIdentifier OUTER_LIST_PATH = YangInstanceIdentifier.builder(TEST_PATH).node(OUTER_LIST_QNAME).build();
     public static final QName TWO_QNAME = QName.create(TEST_QNAME,"two");
     public static final QName THREE_QNAME = QName.create(TEST_QNAME,"three");
 

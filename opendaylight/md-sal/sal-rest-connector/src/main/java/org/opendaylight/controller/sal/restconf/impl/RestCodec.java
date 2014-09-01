@@ -12,17 +12,17 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.opendaylight.controller.sal.core.api.mount.MountInstance;
+import org.opendaylight.controller.md.sal.dom.api.DOMMountPoint;
 import org.opendaylight.controller.sal.rest.impl.RestUtil;
 import org.opendaylight.controller.sal.restconf.impl.IdentityValuesDTO.IdentityValue;
 import org.opendaylight.controller.sal.restconf.impl.IdentityValuesDTO.Predicate;
 import org.opendaylight.yangtools.concepts.Codec;
 import org.opendaylight.yangtools.yang.common.QName;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.NodeIdentifier;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.NodeIdentifierWithPredicates;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.NodeWithValue;
-import org.opendaylight.yangtools.yang.data.api.InstanceIdentifier.PathArgument;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.NodeIdentifier;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.NodeIdentifierWithPredicates;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.NodeWithValue;
+import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier.PathArgument;
 import org.opendaylight.yangtools.yang.data.api.codec.IdentityrefCodec;
 import org.opendaylight.yangtools.yang.data.api.codec.InstanceIdentifierCodec;
 import org.opendaylight.yangtools.yang.data.api.codec.LeafrefCodec;
@@ -47,7 +47,7 @@ public class RestCodec {
     }
 
     public static final Codec<Object, Object> from(final TypeDefinition<?> typeDefinition,
-            final MountInstance mountPoint) {
+            final DOMMountPoint mountPoint) {
         return new ObjectCodec(typeDefinition, mountPoint);
     }
 
@@ -62,7 +62,7 @@ public class RestCodec {
 
         private final TypeDefinition<?> type;
 
-        private ObjectCodec(final TypeDefinition<?> typeDefinition, final MountInstance mountPoint) {
+        private ObjectCodec(final TypeDefinition<?> typeDefinition, final DOMMountPoint mountPoint) {
             type = RestUtil.resolveBaseTypeFrom(typeDefinition);
             if (type instanceof IdentityrefTypeDefinition) {
                 identityrefCodec = new IdentityrefCodecImpl(mountPoint);
@@ -158,9 +158,9 @@ public class RestCodec {
 
         private final Logger logger = LoggerFactory.getLogger(IdentityrefCodecImpl.class);
 
-        private final MountInstance mountPoint;
+        private final DOMMountPoint mountPoint;
 
-        public IdentityrefCodecImpl(final MountInstance mountPoint) {
+        public IdentityrefCodecImpl(final DOMMountPoint mountPoint) {
             this.mountPoint = mountPoint;
         }
 
@@ -200,14 +200,14 @@ public class RestCodec {
 
     public static class InstanceIdentifierCodecImpl implements InstanceIdentifierCodec<IdentityValuesDTO> {
         private final Logger logger = LoggerFactory.getLogger(InstanceIdentifierCodecImpl.class);
-        private final MountInstance mountPoint;
+        private final DOMMountPoint mountPoint;
 
-        public InstanceIdentifierCodecImpl(final MountInstance mountPoint) {
+        public InstanceIdentifierCodecImpl(final DOMMountPoint mountPoint) {
             this.mountPoint = mountPoint;
         }
 
         @Override
-        public IdentityValuesDTO serialize(final InstanceIdentifier data) {
+        public IdentityValuesDTO serialize(final YangInstanceIdentifier data) {
             IdentityValuesDTO identityValuesDTO = new IdentityValuesDTO();
             for (PathArgument pathArgument : data.getPathArguments()) {
                 IdentityValue identityValue = qNameToIdentityValue(pathArgument.getNodeType());
@@ -227,7 +227,7 @@ public class RestCodec {
         }
 
         @Override
-        public InstanceIdentifier deserialize(final IdentityValuesDTO data) {
+        public YangInstanceIdentifier deserialize(final IdentityValuesDTO data) {
             List<PathArgument> result = new ArrayList<PathArgument>();
             IdentityValue valueWithNamespace = data.getValuesWithNamespaces().get(0);
             Module module = getModuleByNamespace(valueWithNamespace.getNamespace(), mountPoint);
@@ -244,7 +244,7 @@ public class RestCodec {
             for (int i = 0; i < identities.size(); i++) {
                 IdentityValue identityValue = identities.get(i);
                 URI validNamespace = resolveValidNamespace(identityValue.getNamespace(), mountPoint);
-                DataSchemaNode node = ControllerContext.getInstance().findInstanceDataChildByNameAndNamespace(
+                DataSchemaNode node = ControllerContext.findInstanceDataChildByNameAndNamespace(
                         parentContainer, identityValue.getValue(), validNamespace);
                 if (node == null) {
                     logger.info("'{}' node was not found in {}", identityValue, parentContainer.getChildNodes());
@@ -271,7 +271,7 @@ public class RestCodec {
                         Map<QName, Object> predicatesMap = new HashMap<>();
                         for (Predicate predicate : identityValue.getPredicates()) {
                             validNamespace = resolveValidNamespace(predicate.getName().getNamespace(), mountPoint);
-                            DataSchemaNode listKey = ControllerContext.getInstance()
+                            DataSchemaNode listKey = ControllerContext
                                     .findInstanceDataChildByNameAndNamespace(listNode, predicate.getName().getValue(),
                                             validNamespace);
                             predicatesMap.put(listKey.getQName(), predicate.getValue());
@@ -286,7 +286,7 @@ public class RestCodec {
                 }
                 result.add(pathArgument);
                 if (i < identities.size() - 1) { // last element in instance-identifier can be other than
-                                                 // DataNodeContainer
+                    // DataNodeContainer
                     if (node instanceof DataNodeContainer) {
                         parentContainer = (DataNodeContainer) node;
                     } else {
@@ -298,7 +298,7 @@ public class RestCodec {
                 }
             }
 
-            return result.isEmpty() ? null : InstanceIdentifier.create(result);
+            return result.isEmpty() ? null : YangInstanceIdentifier.create(result);
         }
 
         private List<Predicate> keyValuesToPredicateList(final Map<QName, Object> keyValues) {
@@ -318,7 +318,7 @@ public class RestCodec {
         }
     }
 
-    private static Module getModuleByNamespace(final String namespace, final MountInstance mountPoint) {
+    private static Module getModuleByNamespace(final String namespace, final DOMMountPoint mountPoint) {
         URI validNamespace = resolveValidNamespace(namespace, mountPoint);
 
         Module module = null;
@@ -334,7 +334,7 @@ public class RestCodec {
         return module;
     }
 
-    private static URI resolveValidNamespace(final String namespace, final MountInstance mountPoint) {
+    private static URI resolveValidNamespace(final String namespace, final DOMMountPoint mountPoint) {
         URI validNamespace;
         if (mountPoint != null) {
             validNamespace = ControllerContext.getInstance().findNamespaceByModuleName(mountPoint, namespace);
