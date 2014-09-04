@@ -24,7 +24,7 @@ public class TenantTunnelObserverCLI {
     public void start() {
         final Dictionary<String, Object> props = new Hashtable<String, Object>();
         props.put("osgi.command.scope", "odpcontroller");
-        props.put("osgi.command.function", new String[] { "getTunnelsMap" });
+        props.put("osgi.command.function", new String[] { "getTunnelsMap", "loadTunnelEndPoints" });
         this.sr = ServiceHelper.registerGlobalServiceWReg(TenantTunnelObserverCLI.class, this, props);
     }
 
@@ -37,7 +37,7 @@ public class TenantTunnelObserverCLI {
 
     @Descriptor("Retrieves Tunnels Map. This returns just those tunnels with a tunnel key (e.g. Tenants Tunnels)")
     public void getTunnelsMap(
-            @Descriptor("Container on the context of which the routing service need to be looked up") String containerName) {
+            @Descriptor("Container") String containerName) {
         System.out.println("TenantTunnelObserver.getTunnelsMap");
 
         ITunnelObserver tunnelObserver = (ITunnelObserver) ServiceHelper.getInstance(ITunnelObserver.class, containerName, this);
@@ -47,6 +47,20 @@ public class TenantTunnelObserverCLI {
         }
         HashMap<String, List<Tunnel>> tunnelsMap = tunnelObserver.getTunnelsMap();
         System.out.println(tunnelsMap);
+    }
+
+    @Descriptor("Load Tunnel EndPoints. ")
+    public void loadTunnelEndPoints(
+            @Descriptor("Container") String containerName) {
+        System.out.println("TenantTunnelObserver.loadTunnelEndPoints");
+
+        ITunnelObserver tunnelObserver = (ITunnelObserver) ServiceHelper.getInstance(ITunnelObserver.class, containerName, this);
+        if(tunnelObserver == null){
+            System.err.println("TenantTunnelObserverCLI - loadTunnels: TenantTunnelObserver is not available");
+            return;
+        }
+        tunnelObserver.loadTunnelEndPoints();
+        System.out.println("LoadTunnelEndPoint finished");
     }
 
 }
