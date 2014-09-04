@@ -1136,7 +1136,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             for (String brUuid : bridges.keySet()) {
                 Bridge bridge = ovsdbConfigService.getTypedRow(ovsNode, Bridge.class, bridges.get(brUuid));
 
-//                long bridgeDpid = HexEncode.stringToLong((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
+//                long bridgeDpid = sEncode.stringToLong((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
                 BigInteger bridgeDpid = OpenFlowUtils.getDpId((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
 //                long ofNodeDpid = Long.parseLong(ofNode.getId().getValue().split(":")[1]);
                 BigInteger ofNodeDpid = new BigInteger(ofNode.getId().getValue().split(":")[1]);
@@ -1164,6 +1164,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
         for (UUID portUuid : portUuids) {
             Port port = ovsdbConfigService.getTypedRow(ovsNode, Port.class, ports.get(portUuid.toString()));
+            if (port == null || port.getInterfacesColumn() == null || port.getInterfacesColumn().getData() == null) continue;
             UUID interfaceUuid = (UUID) port.getInterfacesColumn().getData().toArray()[0];
             Row interfaceRow = ovsdbConfigService.getRow(ovsNode, ovsdbConfigService.getTableName(ovsNode, Interface.class), interfaceUuid.toString());
             Interface intf = ovsdbConfigService.getTypedRow(ovsNode, Interface.class, interfaceRow);
