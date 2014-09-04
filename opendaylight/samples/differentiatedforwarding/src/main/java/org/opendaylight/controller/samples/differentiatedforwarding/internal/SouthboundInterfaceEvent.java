@@ -1,8 +1,8 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.internal;
 
 import org.opendaylight.controller.sal.core.Node;
+import org.opendaylight.controller.samples.differentiatedforwarding.SouthboundEvent;
 import org.opendaylight.ovsdb.lib.notation.Row;
-import org.opendaylight.ovsdb.neutron.SouthboundEvent;
 
 public class SouthboundInterfaceEvent extends SouthboundEvent{
 
