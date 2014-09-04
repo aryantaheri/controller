@@ -4,6 +4,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,15 +24,14 @@ import org.opendaylight.controller.sal.core.Node;
 import org.opendaylight.controller.sal.core.NodeConnector;
 import org.opendaylight.controller.sal.utils.HexEncode;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
+import org.opendaylight.controller.samples.differentiatedforwarding.AbstractEvent.Action;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
+import org.opendaylight.controller.samples.differentiatedforwarding.SouthboundEvent;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
 import org.opendaylight.controller.samples.differentiatedforwarding.TunnelEndPoint;
 import org.opendaylight.ovsdb.lib.notation.Row;
 import org.opendaylight.ovsdb.lib.notation.UUID;
-import org.opendaylight.ovsdb.neutron.ITenantNetworkManager;
-import org.opendaylight.ovsdb.neutron.NetworkHandler;
-import org.opendaylight.ovsdb.neutron.SouthboundEvent;
-import org.opendaylight.ovsdb.neutron.SouthboundEvent.Action;
+import org.opendaylight.ovsdb.openstack.netvirt.api.Constants;
 import org.opendaylight.ovsdb.plugin.IConnectionServiceInternal;
 import org.opendaylight.ovsdb.plugin.OvsdbConfigService;
 import org.opendaylight.ovsdb.plugin.OvsdbInventoryListener;
@@ -45,7 +45,6 @@ import org.slf4j.LoggerFactory;
 
 public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObserver {
     private static Logger log = LoggerFactory.getLogger(TenantTunnelObserver.class);
-    private static short DEFAULT_IPSWITCH_PRIORITY = 1;
     public static String REMOVED_BY_TENANT_TUNNEL_OBSERVER = "REMOVED_BY_TENANT_TUNNEL_OBSERVER";
     static final String FORWARDING_RULES_CACHE_NAME = "forwarding.ipswitch.rules";
 
@@ -59,7 +58,7 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
     private ExecutorService tunnelEventHandler;
     //TODO: Use clusterContainerService.createCache for creating the object and storage
     private HashMap<String, List<Tunnel>> tunnelsMap;
-    private HashMap<String, List<TunnelEndPoint>> tunnelEndPointsMap;
+    private HashMap<String, Set<TunnelEndPoint>> tunnelEndPointsMap;
 
     /**
      * Function called by the dependency manager when all the required
@@ -71,7 +70,7 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
         ovsdbTunnelInterfaceEvents = new LinkedBlockingQueue<SouthboundInterfaceEvent>();
         tunnelEventHandler = Executors.newSingleThreadExecutor();
         tunnelsMap = new HashMap<String, List<Tunnel>>();
-        tunnelEndPointsMap = new HashMap<String, List<TunnelEndPoint>>();
+        tunnelEndPointsMap = new HashMap<String, Set<TunnelEndPoint>>();
         //FIXME: This is wrong
         OvsdbConfigService ovsdbConfigService = (OvsdbConfigService)ServiceHelper.getGlobalInstance(OvsdbConfigService.class, this);
         setOVSDBConfigService(ovsdbConfigService);
@@ -155,8 +154,8 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
             if (event.getTableName().equalsIgnoreCase(tableName)){
 
                 Interface intf = this.ovsdbConfigService.getTypedRow(event.getNode(), Interface.class, event.getRow());
-                if (intf.getTypeColumn().getData().equalsIgnoreCase(NetworkHandler.NETWORK_TYPE_GRE) ||
-                    intf.getTypeColumn().getData().equalsIgnoreCase(NetworkHandler.NETWORK_TYPE_VXLAN)){
+                if (intf.getTypeColumn().getData().equalsIgnoreCase(org.opendaylight.controller.samples.differentiatedforwarding.Constants.NETWORK_TYPE_GRE) ||
+                    intf.getTypeColumn().getData().equalsIgnoreCase(org.opendaylight.controller.samples.differentiatedforwarding.Constants.NETWORK_TYPE_VXLAN)){
 
                     if (event.getAction() == Action.UPDATE){
                         Interface oldIntf = this.ovsdbConfigService.getTypedRow(event.getNode(), Interface.class, event.getOldRow());
@@ -228,7 +227,8 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
         }
     }
 
-    private void loadTunnelEndPoints(){
+    @Override
+    public void loadTunnelEndPoints(){
         log.debug("loadTunnelEndPoints");
         INeutronNetworkCRUD neutronNetworkService = (INeutronNetworkCRUD)ServiceHelper.getGlobalInstance(INeutronNetworkCRUD.class, this);
         if (neutronNetworkService == null){
@@ -242,9 +242,9 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
             String segmentationId = neutronNetwork.getProviderSegmentationID();
             if (segmentationId == null) continue;
 
-            List<TunnelEndPoint> teps = tunnelEndPointsMap.get(segmentationId);
+            Set<TunnelEndPoint> teps = tunnelEndPointsMap.get(segmentationId);
             if (teps == null){
-                teps = new ArrayList<TunnelEndPoint>();
+                teps = new HashSet<TunnelEndPoint>();
                 tunnelEndPointsMap.put(segmentationId, teps);
             }
 
@@ -311,8 +311,8 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
         for (String rowUuid : rows.keySet()) {
             Interface intf = ovsdbConfigService.getTypedRow(ovsNode, Interface.class, rows.get(rowUuid));
             if (intf != null && intf.getTypeColumn().getData() != null &&
-                    (intf.getTypeColumn().getData().equalsIgnoreCase(NetworkHandler.NETWORK_TYPE_GRE) ||
-                            intf.getTypeColumn().getData().equalsIgnoreCase(NetworkHandler.NETWORK_TYPE_VXLAN))){
+                    (intf.getTypeColumn().getData().equalsIgnoreCase(org.opendaylight.controller.samples.differentiatedforwarding.Constants.NETWORK_TYPE_GRE) ||
+                            intf.getTypeColumn().getData().equalsIgnoreCase(org.opendaylight.controller.samples.differentiatedforwarding.Constants.NETWORK_TYPE_VXLAN))){
                 // Found TEP Interface
                 Node ofNode = getOpenFlowNode(ovsNode, rowUuid, intf);
 
@@ -347,7 +347,7 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
                 for (String rowUuid : rows.keySet()) {
                     Interface intf = ovsdbConfigService.getTypedRow(node, Interface.class, rows.get(rowUuid));
                     for (NeutronPort neutronPort : neutronPorts) {
-                        if (neutronPort.getPortUUID().equalsIgnoreCase(intf.getExternalIdsColumn().getData().get(ITenantNetworkManager.EXTERNAL_ID_INTERFACE_ID))){
+                        if (neutronPort.getPortUUID().equalsIgnoreCase(intf.getExternalIdsColumn().getData().get(Constants.EXTERNAL_ID_INTERFACE_ID))){
                             if (!ovsdbNodes.contains(node)) {
                                 ovsdbNodes.add(node);
                                 nodeAdded = true;
