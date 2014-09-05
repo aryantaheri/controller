@@ -228,6 +228,15 @@ public class TenantTunnelObserver implements OvsdbInventoryListener, ITunnelObse
     }
 
     @Override
+    public HashMap<String, Set<TunnelEndPoint>> getTunnelEndPoints() {
+        return tunnelEndPointsMap;
+    }
+
+    /**
+     * NOTE: This is specifically designed for the cases where "key=flow",
+     * otherwise getTepIp and getTepNc should be rewritten.
+     */
+    @Override
     public void loadTunnelEndPoints(){
         log.debug("loadTunnelEndPoints");
         INeutronNetworkCRUD neutronNetworkService = (INeutronNetworkCRUD)ServiceHelper.getGlobalInstance(INeutronNetworkCRUD.class, this);
