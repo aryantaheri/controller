@@ -27,6 +27,15 @@ public class Tunnel implements Serializable {
         this.tunnelKey = tunnelKey;
     }
 
+    public Tunnel(TunnelEndPoint srcTep, TunnelEndPoint dstTep) throws Exception {
+        this.srcNodeConnector = srcTep.getTepNodeConnector();
+        this.dstNodeConnector = dstTep.getTepNodeConnector();
+        this.srcAddress = srcTep.getTepAddress();
+        this.dstAddress = dstTep.getTepAddress();
+        if (!srcTep.getTunnelKey().equalsIgnoreCase(dstTep.getTunnelKey())) throw new Exception("Src TEP and Dst TEP doesn't have a same Tunnel Key");
+        this.tunnelKey = srcTep.getTunnelKey();
+    }
+
     public NodeConnector getSrcNodeConnector() {
         return srcNodeConnector;
     }
