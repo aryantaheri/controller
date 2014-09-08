@@ -271,16 +271,16 @@ public class OpenFlowUtils {
         SetNwTosActionBuilder setNwTosActionBuilder = new SetNwTosActionBuilder();
         setNwTosActionBuilder.setTos((int) dscp);
         ab.setAction(new SetNwTosActionCaseBuilder().setSetNwTosAction(setNwTosActionBuilder.build()).build());
-        ab.setOrder(1);
-        ab.setKey(new ActionKey(1));
+        ab.setOrder(0);
+        ab.setKey(new ActionKey(0));
         actionList.add(ab.build());
 
         ActionBuilder ab2 = new ActionBuilder();
         OutputActionBuilder oab = new OutputActionBuilder();
         oab.setOutputNodeConnector(outputPort.getId());
         ab2.setAction(new OutputActionCaseBuilder().setOutputAction(oab.build()).build());
-        ab2.setOrder(0);
-        ab2.setKey(new ActionKey(0));
+        ab2.setOrder(1);
+        ab2.setKey(new ActionKey(1));
         actionList.add(ab2.build());
 
         ApplyActionsBuilder aab = new ApplyActionsBuilder();
