@@ -28,7 +28,7 @@ public class DifferentiatedForwardingCLI {
     public void start() {
         final Dictionary<String, Object> props = new Hashtable<String, Object>();
         props.put("osgi.command.scope", "odpcontroller");
-        props.put("osgi.command.function", new String[] { "programTunnel", "getMdNode", "getExternalInterface" });
+        props.put("osgi.command.function", new String[] { "programTunnel", "programTEPs", "getMdNode", "getExternalInterface", "getTenantLocalInterfaces" });
         this.sr = ServiceHelper.registerGlobalServiceWReg(DifferentiatedForwardingCLI.class, this, props);
     }
 
@@ -118,7 +118,7 @@ public class DifferentiatedForwardingCLI {
 
         IForwarding forwarding = (IForwarding) ServiceHelper.getInstance(IForwarding.class, container, this);
         if(forwarding == null){
-            System.err.println("DifferentiatedForwardingCLI - programTunnel: IForwarding is not available");
+            System.err.println("DifferentiatedForwardingCLI - getExternalInterface: IForwarding is not available");
             return;
         }
         Node node = forwarding.getMdNode(nodeName);
@@ -128,4 +128,18 @@ public class DifferentiatedForwardingCLI {
 
     }
 
+    public void getTenantLocalInterfaces(@Descriptor("Container on the context of which the routing service need to be looked up") String container,
+            @Descriptor("Node DP ID") String nodeDpId,
+            @Descriptor("Tenant Segmentation ID") String segmentationId){
+
+        IForwarding forwarding = (IForwarding) ServiceHelper.getInstance(IForwarding.class, container, this);
+        if(forwarding == null){
+            System.err.println("DifferentiatedForwardingCLI - getTenantLocalInterfaces: IForwarding is not available");
+            return;
+        }
+        Node ofNode = forwarding.getMdNode(nodeDpId);
+        List<Long> ofPorts = forwarding.getTenantLocalInterfaces(ofNode, segmentationId);
+        System.out.println("Node: "+ ofNode.getId() + "");
+        System.out.println("OfPorts: " + ofPorts);
+    }
 }
