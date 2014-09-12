@@ -13,6 +13,23 @@ public class TunnelEndPoint {
         this.tepNodeConnector = tepNodeConnector;
         this.tunnelKey = tunnelKey;
     }
+
+
+    public NodeConnector getTepNodeConnector() {
+        return tepNodeConnector;
+    }
+
+
+    public InetAddress getTepAddress() {
+        return tepAddress;
+    }
+
+
+    public String getTunnelKey() {
+        return tunnelKey;
+    }
+
+
     @Override
     public String toString() {
         return "TunnelEndPoint: key(" + tunnelKey + ")" + tepNodeConnector + "(" + tepAddress + ")";
