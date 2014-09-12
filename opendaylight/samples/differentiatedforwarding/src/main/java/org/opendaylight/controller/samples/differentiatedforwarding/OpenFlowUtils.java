@@ -14,6 +14,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.acti
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.output.action._case.OutputActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.set.nw.tos.action._case.SetNwTosActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.Action;
+//import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.Action;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.MatchBuilder;
@@ -29,6 +30,39 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.TunnelBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._3.match.Ipv4MatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._4.match.UdpMatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg0;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg1;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg2;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg3;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg4;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg5;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg6;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.general.rev140714.ExtensionKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.general.rev140714.GeneralAugMatchNodesNodeTableFlow;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.general.rev140714.GeneralAugMatchNodesNodeTableFlowBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.general.rev140714.general.extension.grouping.ExtensionBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.general.rev140714.general.extension.list.grouping.ExtensionList;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.general.rev140714.general.extension.list.grouping.ExtensionListBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.action.rev140714.dst.choice.grouping.DstChoice;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.action.rev140714.dst.choice.grouping.dst.choice.DstNxRegCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.action.rev140714.nodes.node.table.flow.instructions.instruction.instruction.apply.actions._case.apply.actions.action.action.NxActionRegLoadNodesNodeTableFlowApplyActionsCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.action.rev140714.nx.action.reg.load.grouping.NxRegLoadBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.action.rev140714.nx.action.reg.load.grouping.nx.reg.load.DstBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxAugMatchNodesNodeTableFlow;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxAugMatchNodesNodeTableFlowBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxmNxReg0Key;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxmNxReg1Key;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxmNxReg2Key;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxmNxReg3Key;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxmNxReg4Key;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxmNxReg5Key;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxmNxReg6Key;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.NxmNxReg7Key;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.nicira.match.rev140714.nxm.nx.reg.grouping.NxmNxRegBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.ovs.nx.sal.action.rev140714.nodes.node.table.flow.instructions.instruction.instruction.apply.actions._case.apply.actions.action.action.NxActionResubmitNodesNodeTableFlowApplyActionsCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.ovs.nx.sal.action.rev140714.nx.action.resubmit.grouping.NxResubmit;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.ovs.nx.sal.action.rev140714.nx.action.resubmit.grouping.NxResubmitBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,6 +109,78 @@ public class OpenFlowUtils {
             NodeConnector inPortMDNodeConnector) {
 
         matchBuilder.setInPort(inPortMDNodeConnector.getId());
+        return matchBuilder;
+    }
+
+    /**
+     *
+     * Credit to Mahdu OVSDB Plugin
+     *
+     */
+    public static class RegMatch {
+        final Class<? extends NxmNxReg> reg;
+        final Long value;
+        public RegMatch(Class<? extends NxmNxReg> reg, Long value) {
+            super();
+            this.reg = reg;
+            this.value = value;
+        }
+        public static RegMatch of(Class<? extends NxmNxReg> reg, Long value) {
+            return new RegMatch(reg, value);
+        }
+    }
+
+    /**
+     *
+     * Credit to Mahdu OVSDB Plugin
+     *
+     */
+    public static MatchBuilder addNxRegMatch(MatchBuilder match,
+                                     RegMatch... regMatches) {
+        ArrayList<ExtensionList> extensions = new ArrayList<>();
+        for (RegMatch rm : regMatches) {
+            Class<? extends ExtensionKey> key;
+            if (NxmNxReg0.class.equals(rm.reg)) {
+                key = NxmNxReg0Key.class;
+            } else if (NxmNxReg1.class.equals(rm.reg)) {
+                key = NxmNxReg1Key.class;
+            } else if (NxmNxReg2.class.equals(rm.reg)) {
+                key = NxmNxReg2Key.class;
+            } else if (NxmNxReg3.class.equals(rm.reg)) {
+                key = NxmNxReg3Key.class;
+            } else if (NxmNxReg4.class.equals(rm.reg)) {
+                key = NxmNxReg4Key.class;
+            } else if (NxmNxReg5.class.equals(rm.reg)) {
+                key = NxmNxReg5Key.class;
+            } else if (NxmNxReg6.class.equals(rm.reg)) {
+                key = NxmNxReg6Key.class;
+            } else {
+                key = NxmNxReg7Key.class;
+            }
+            NxAugMatchNodesNodeTableFlow am =
+                    new NxAugMatchNodesNodeTableFlowBuilder()
+                .setNxmNxReg(new NxmNxRegBuilder()
+                    .setReg(rm.reg)
+                    .setValue(rm.value)
+                    .build())
+                .build();
+            extensions.add(new ExtensionListBuilder()
+                .setExtensionKey(key)
+                .setExtension(new ExtensionBuilder()
+                     .addAugmentation(NxAugMatchNodesNodeTableFlow.class, am)
+                     .build())
+                .build());
+        }
+        GeneralAugMatchNodesNodeTableFlow m =
+                new GeneralAugMatchNodesNodeTableFlowBuilder()
+            .setExtensionList(extensions)
+            .build();
+        match.addAugmentation(GeneralAugMatchNodesNodeTableFlow.class, m);
+        return match;
+    }
+
+    public static MatchBuilder createRegMatch(MatchBuilder matchBuilder, Class<? extends NxmNxReg> reg, long regValue){
+        addNxRegMatch(matchBuilder, new RegMatch(reg, Long.valueOf(regValue)));
         return matchBuilder;
     }
 
@@ -352,5 +458,70 @@ public class OpenFlowUtils {
 
         return ib;
     }
+
+    public static InstructionBuilder createIngressDscpMarkResubmitInstructions(InstructionBuilder ib, Class<? extends NxmNxReg> reg, long regValue, int dscp, Integer inPort, Short table) {
+        List<Action> actionList = new ArrayList<Action>();
+
+
+        Action regLoadAction = createSetRegAction(reg, regValue, 0);
+        actionList.add(regLoadAction);
+
+        Action dscpAction = createMarkDscpAction(dscp, 1);
+        actionList.add(dscpAction);
+
+        Action resubmitAction = createNxResubmitAction(inPort, table, 2);
+        actionList.add(resubmitAction);
+
+
+        ApplyActionsBuilder aab = new ApplyActionsBuilder();
+        aab.setAction(actionList);
+
+        ib.setInstruction(new ApplyActionsCaseBuilder().setApplyActions(aab.build()).build());
+
+        return ib;
+    }
+
+    private static Action createSetRegAction(Class<? extends NxmNxReg> reg, long regValue, int order){
+        ActionBuilder regActionBuilder = new ActionBuilder();
+        DstChoice dstReg = new DstNxRegCaseBuilder().setNxReg(reg).build();
+
+        NxRegLoadBuilder regLoadBuilder = new NxRegLoadBuilder();
+        regLoadBuilder.setDst(new DstBuilder().setDstChoice(dstReg).setStart(0).setEnd(31).build());
+        regLoadBuilder.setValue(BigInteger.valueOf(regValue));
+
+        org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.Action fuckingLongName = new NxActionRegLoadNodesNodeTableFlowApplyActionsCaseBuilder()
+        .setNxRegLoad(regLoadBuilder.build()).build();
+
+        regActionBuilder.setAction(fuckingLongName);
+        regActionBuilder.setOrder(order);
+        regActionBuilder.setKey(new ActionKey(order));
+
+        return regActionBuilder.build();
+
+    }
+
+    private static Action createMarkDscpAction(int dscp, int order){
+        ActionBuilder dscpActionBuilder = new ActionBuilder();
+        SetNwTosActionBuilder setNwTosActionBuilder = new SetNwTosActionBuilder();
+        setNwTosActionBuilder.setTos(dscp);
+        dscpActionBuilder.setAction(new SetNwTosActionCaseBuilder().setSetNwTosAction(setNwTosActionBuilder.build()).build());
+        dscpActionBuilder.setOrder(order);
+        dscpActionBuilder.setKey(new ActionKey(order));
+        return dscpActionBuilder.build();
+    }
+
+    private static Action createNxResubmitAction(Integer inPort, Short table, int order){
+        NxResubmitBuilder builder = new NxResubmitBuilder();
+        if (inPort != null) builder.setInPort(inPort);
+        if (table != null)  builder.setTable(table);
+        NxResubmit r = builder.build();
+        org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.Action resubmitAction = new NxActionResubmitNodesNodeTableFlowApplyActionsCaseBuilder().setNxResubmit(r).build();
+        ActionBuilder resubmitActionBuilder = new ActionBuilder();
+        resubmitActionBuilder.setAction(resubmitAction);
+        resubmitActionBuilder.setOrder(order);
+        resubmitActionBuilder.setKey(new ActionKey(order));
+        return resubmitActionBuilder.build();
+    }
+
 
 }

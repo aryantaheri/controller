@@ -20,6 +20,9 @@ import org.opendaylight.controller.md.sal.binding.api.ReadWriteTransaction;
 import org.opendaylight.controller.md.sal.common.api.TransactionStatus;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.controller.md.sal.common.api.data.OptimisticLockFailedException;
+import org.opendaylight.controller.networkconfig.neutron.INeutronNetworkCRUD;
+import org.opendaylight.controller.networkconfig.neutron.NeutronNetwork;
+import org.opendaylight.controller.networkconfig.neutron.NeutronPort;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.IKShortestRoutes;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.YKShortestPaths;
 import org.opendaylight.controller.sal.core.Edge;
@@ -42,6 +45,7 @@ import org.opendaylight.controller.switchmanager.ISwitchManager;
 import org.opendaylight.controller.topologymanager.ITopologyManager;
 import org.opendaylight.ovsdb.lib.notation.Row;
 import org.opendaylight.ovsdb.lib.notation.UUID;
+import org.opendaylight.ovsdb.openstack.netvirt.api.Constants;
 import org.opendaylight.ovsdb.plugin.IConnectionServiceInternal;
 import org.opendaylight.ovsdb.plugin.OvsdbConfigService;
 import org.opendaylight.ovsdb.schema.openvswitch.Bridge;
@@ -70,6 +74,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.N
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.EtherType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg0;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.slf4j.Logger;
@@ -112,6 +117,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     /**
      * OpenFlow Priorities
      */
+    private static final int PRIORITY_MAX = 65535;
     private static final int PRIORITY_NORMAL = 0;
     private static final int PRIORITY_LLDP = 4000; // Put it high, so it will reach controller
     private static final int PRIORITY_TUNNEL_EXTLOCAL = 500;
@@ -120,6 +126,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     private static final int PRIORITY_TUNNEL_SRC_IN = 1001;
     private static final int PRIORITY_TUNNEL_IP_SRC_IN = 1002; // Higher priority compared to PRIORITY_TUNNEL_SRC_IN, so it captures IP packets for DSCP marking
     private static final int PRIORITY_TUNNEL_DST_OUT = 1001;
+    private static final int PRIORITY_TUNNEL_INGRESS_DSCP_MARKING = PRIORITY_MAX;
 
     private static final int RETRIES = 3;
     /**
@@ -270,6 +277,11 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      */
     private void programTunnelSource(Tunnel tunnel, Node outPortMDNode, NodeConnector outPortMDNC, boolean write) {
         log.debug("programTunnelSource: tunnel {} outPortMDNode {} outPortMDNC {} write {}", tunnel, outPortMDNode.getId(), outPortMDNC.getId(), write);
+
+        // This is required when using OpenStack
+        handleTenantPortsDscpMarking(outPortMDNode, tunnel, write);
+
+        // These two are required when we're using mininet.
         handleIngressTrafficToTunnelSource(tunnel, outPortMDNode, outPortMDNC, write);
         handleIngressIpTrafficToTunnelSource(tunnel, outPortMDNode, outPortMDNC, write);
 
@@ -320,7 +332,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     }
 
     /**
-     * Mark traffic with DSCP=0 to the biggest program DSCP value in the network.
+     * Mark traffic with DSCP=0 to the biggest programmed DSCP value in the network.
      * This should cover non-IP traffic from end points.
      * It can be further optimized by querying the SW for available flow rules, and avoid rewriting with the same value.
      * Match in_port=LOCAL,ip,nw_tos=0
@@ -400,14 +412,40 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         return dscp;
     }
 
-    private void markDscpAndWriteRuleForTunnel(Tunnel tunnel, Node node, NodeConnector inPort, NodeConnector outPort, String flowName, int priority, short table, boolean write) {
+    private void handleTenantPortsDscpMarking(Node ofNode, Tunnel tunnel, boolean write){
+        List<Long> inPortOfPorts = getTenantLocalInterfaces(ofNode, tunnel.getTunnelKey());
+        String flowNamePrefix = "TE_TUNNEL_INGRESS_" + tunnel.getTunnelKey() + ofNode.getId().getValue() + "_OFPort";
+        String flowName;
+        for (Long inPortOfPort : inPortOfPorts) {
+            NodeConnectorId ncId = new NodeConnectorId(ofNode.getId().getValue() + ":" + inPortOfPort);
+            NodeConnector nc = new NodeConnectorBuilder().setId(ncId).build();
+            flowName = new String(flowNamePrefix + inPortOfPort);
+            markIngressDscpAndResubmit(tunnel, ofNode, nc, flowName, PRIORITY_TUNNEL_INGRESS_DSCP_MARKING, TABLE_0_DEFAULT_INGRESS, TABLE_0_DEFAULT_INGRESS, write);
+        }
+    }
+    /**
+     * 0- Check reg0 to see if it has been marked before. Discard DSCP marks not specified by us.
+     * 1- Mark internal ingress traffic (from connected VMs) with DSCP
+     * 2- Set reg0
+     * 3- Resubmit to make it compatible
+     * @param tunnel
+     * @param node
+     * @param inPort
+     * @param outPort
+     * @param flowName
+     * @param priority
+     * @param table
+     * @param write
+     */
+    private void markIngressDscpAndResubmit(Tunnel tunnel, Node node, NodeConnector inPort, String flowName, int priority, short table, short resubmitTable, boolean write) {
         MatchBuilder matchBuilder = new MatchBuilder();
         FlowBuilder flowBuilder = new FlowBuilder();
         NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(node, table);
 
-        OpenFlowUtils.createSrcDstL3IPv4Match(matchBuilder, tunnel.getSrcAddress(), tunnel.getDstAddress());
+        //match:ip,in_port=$A_TENANT_PORT,reg0=0
+        OpenFlowUtils.createEtherTypeMatch(matchBuilder, new EtherType((long) EtherTypes.IPv4.intValue()));
         OpenFlowUtils.createInPortMatch(matchBuilder, node, inPort);
-
+        OpenFlowUtils.createRegMatch(matchBuilder, NxmNxReg0.class, 0L);
         flowBuilder.setMatch(matchBuilder.build());
 
         flowBuilder.setId(new FlowId(flowName));
@@ -422,12 +460,13 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         flowBuilder.setPriority(priority);
 
         if(write){
-            log.debug("markDscpAndWriteRule: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
+            log.debug("markIngressDscpAndResubmit: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
             InstructionBuilder ib = new InstructionBuilder();
             InstructionsBuilder isb = new InstructionsBuilder();
             List<Instruction> instructions = new ArrayList<Instruction>();
 
-            OpenFlowUtils.createMarkDscpAndOutputInstructions(ib, tunnelsDscp.get(tunnel), outPort);
+            //actions=set_field:X->ip_dscp,set_field:1->reg0,resubmit(,0)
+            OpenFlowUtils.createIngressDscpMarkResubmitInstructions(ib, NxmNxReg0.class, 1L, tunnelsDscp.get(tunnel), null, resubmitTable);
             ib.setOrder(0);
             ib.setKey(new InstructionKey(0));
             instructions.add(ib.build());
@@ -443,6 +482,68 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     }
 
 
+
+    @Override
+    public List<Long> getTenantLocalInterfaces(Node ofNode, String segmentationId) {
+        log.debug("getTenantLocalInterfaces: ofNode {} SegmentationId {}", ofNode, segmentationId);
+        org.opendaylight.controller.sal.core.Node ovsNode = getOvsNode(ofNode);
+        List<NeutronPort> neutronPorts = getNeutronPorts(segmentationId);
+        log.trace("getTenantLocalInterfaces: neutronPorts {}", neutronPorts);
+        if (neutronPorts == null) return null;
+        List<Long> ofPorts = getOfPorts(ovsNode, neutronPorts);
+        log.trace("getTenantLocalInterfaces: ovsNode={} segmentationId={}, ofPorts={}", ovsNode, segmentationId, ofPorts);
+        return ofPorts;
+    }
+
+    private List<Long> getOfPorts(org.opendaylight.controller.sal.core.Node ovsNode, List<NeutronPort> neutronPorts) {
+        OvsdbConfigService ovsdbConfigService = (OvsdbConfigService)ServiceHelper.getGlobalInstance(OvsdbConfigService.class, this);
+        Map<String, Row> ports = ovsdbConfigService.getRows(ovsNode, ovsdbConfigService.getTableName(ovsNode, Port.class));
+        if (ports == null || ports.size() == 0) {
+            log.error("getOfPort: didn't find Ports in ovsNode {} ", ovsNode.getNodeIDString());
+            return null;
+        }
+
+        List<Long> ofPorts = new ArrayList<>();
+        for (String portUuid : ports.keySet()) {
+            Port port = ovsdbConfigService.getTypedRow(ovsNode, Port.class, ports.get(portUuid));
+            if (port == null || port.getInterfacesColumn() == null || port.getInterfacesColumn().getData() == null) continue;
+            UUID interfaceUuid = (UUID) port.getInterfacesColumn().getData().toArray()[0];
+            Row interfaceRow = ovsdbConfigService.getRow(ovsNode, ovsdbConfigService.getTableName(ovsNode, Interface.class), interfaceUuid.toString());
+            Interface intf = ovsdbConfigService.getTypedRow(ovsNode, Interface.class, interfaceRow);
+            for (NeutronPort neutronPort : neutronPorts) {
+                if (intf.getExternalIdsColumn().getData() != null &&
+                        intf.getExternalIdsColumn().getData().get(Constants.EXTERNAL_ID_INTERFACE_ID) != null &&
+                        intf.getExternalIdsColumn().getData().get(Constants.EXTERNAL_ID_INTERFACE_ID).equalsIgnoreCase(neutronPort.getPortUUID())){
+                    // This neutronPort exists on this ovsNode and belongs to the given neutronNetwork/segmentationId
+                    log.trace("getOfPorts: found interface {}={}, ovsNode {}", intf.getName(), intf.getOpenFlowPortColumn().getData(), ovsNode);
+                    ofPorts.add((Long) intf.getOpenFlowPortColumn().getData().toArray()[0]);
+                }
+            }
+        }
+        log.trace("getOfPorts: ovsNode {} ofPorts {}", ovsNode.getNodeIDString(), ofPorts);
+        return ofPorts;
+    }
+
+    private List<NeutronPort> getNeutronPorts(String segmentationId) {
+        INeutronNetworkCRUD neutronNetworkService = (INeutronNetworkCRUD)ServiceHelper.getGlobalInstance(INeutronNetworkCRUD.class, this);
+        if (neutronNetworkService == null){
+            log.error("getNeutronPorts: INeutronNetworkCRUD is not available");
+            return null;
+        }
+        List <NeutronNetwork> neutronNetworks = neutronNetworkService.getAllNetworks();
+        log.trace("getNeutronPorts: neutronNetworks {}", neutronNetworks);
+        if (neutronNetworks == null) return null;
+        NeutronNetwork neutronNetwork = null;
+        for (NeutronNetwork network : neutronNetworks) {
+            if (network.getProviderSegmentationID().equalsIgnoreCase(segmentationId)) {
+                neutronNetwork = network;
+            }
+        }
+        log.trace("getNeutronPorts: chosen neutronNetwork {}", neutronNetwork);
+        if (neutronNetwork == null) return null;
+        List<NeutronPort> neutronPorts = neutronNetwork.getPortsOnNetwork();
+        return neutronPorts;
+    }
 
     /**
      * 1) Select designated ingress traffic to node
@@ -693,10 +794,6 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         }
     }
 
-    private void programEdgeDestination() {
-        // TODO Auto-generated method stub
-
-    }
 
     private void removeFlow(FlowBuilder flowBuilder, NodeBuilder nodeBuilder) {
         log.error("removeFlow: not implemented");
@@ -1022,12 +1119,6 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         }
     }
 
-
-//    @Override
-//    public ConcurrentMap<HostNodePair, HashMap<org.opendaylight.controller.sal.core.NodeConnector, FlowEntry>> getRulesDB() {
-//        return rulesDB;
-//    }
-
     @Override
     public Node getMdNode(String nodeDpId) {
 //        Long dpid = Long.valueOf(HexEncode.stringToLong(nodeDpId));
@@ -1174,6 +1265,31 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             }
         }
         log.error("getExternalInterfaceOfPort: didn't find ExternalInterface in ovsNode {} bridge {} make sure the type is system", ovsNode.getNodeIDString(), bridge.getName());
+        return null;
+    }
+
+    private org.opendaylight.controller.sal.core.Node getOvsNode(Node ofNode){
+        OvsdbConfigService ovsdbConfigService = (OvsdbConfigService)ServiceHelper.getGlobalInstance(OvsdbConfigService.class, this);
+        IConnectionServiceInternal connectionService = (IConnectionServiceInternal)ServiceHelper.getGlobalInstance(IConnectionServiceInternal.class, this);
+        List<org.opendaylight.controller.sal.core.Node> ovsNodes = connectionService.getNodes();
+
+        for (org.opendaylight.controller.sal.core.Node ovsNode : ovsNodes) {
+            Map<String, Row> bridges = ovsdbConfigService.getRows(ovsNode, ovsdbConfigService.getTableName(ovsNode, Bridge.class));
+            if (bridges == null) continue;
+            for (String brUuid : bridges.keySet()) {
+                Bridge bridge = ovsdbConfigService.getTypedRow(ovsNode, Bridge.class, bridges.get(brUuid));
+
+                BigInteger bridgeDpid = OpenFlowUtils.getDpId((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
+                BigInteger ofNodeDpid = new BigInteger(ofNode.getId().getValue().split(":")[1]);
+
+                if (ofNodeDpid.equals(bridgeDpid)){
+                    // Found the bridge
+                    log.trace("getOvsNode: found ovsNode {} bridge {} for ofNode {}", ovsNode.getNodeIDString(), bridge.getName(), ofNode.getId());
+                    return ovsNode;
+
+                }
+            }
+        }
         return null;
     }
 }
