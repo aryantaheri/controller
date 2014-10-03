@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.opendaylight.openflowplugin.openflow.md.util.ActionUtil;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Dscp;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Ipv4Prefix;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.PortNumber;
@@ -354,7 +355,7 @@ public class OpenFlowUtils {
 
         SetNwTosActionBuilder setNwTosActionBuilder = new SetNwTosActionBuilder();
         // ODL OF use the nw_tos_shifted field to cover the ECN. However, the field is still called ToS here.
-        setNwTosActionBuilder.setTos((int) dscp);
+        setNwTosActionBuilder.setTos(ActionUtil.dscpToTos(dscp).intValue());
         ab.setAction(new SetNwTosActionCaseBuilder().setSetNwTosAction(setNwTosActionBuilder.build()).build());
         ab.setOrder(0);
         ab.setKey(new ActionKey(0));
@@ -375,7 +376,7 @@ public class OpenFlowUtils {
 
         ActionBuilder ab = new ActionBuilder();
         SetNwTosActionBuilder setNwTosActionBuilder = new SetNwTosActionBuilder();
-        setNwTosActionBuilder.setTos((int) dscp);
+        setNwTosActionBuilder.setTos(ActionUtil.dscpToTos(dscp).intValue());
         ab.setAction(new SetNwTosActionCaseBuilder().setSetNwTosAction(setNwTosActionBuilder.build()).build());
         ab.setOrder(0);
         ab.setKey(new ActionKey(0));
@@ -459,7 +460,7 @@ public class OpenFlowUtils {
         return ib;
     }
 
-    public static InstructionBuilder createIngressDscpMarkResubmitInstructions(InstructionBuilder ib, Class<? extends NxmNxReg> reg, long regValue, int dscp, Integer inPort, Short table) {
+    public static InstructionBuilder createIngressDscpMarkResubmitInstructions(InstructionBuilder ib, Class<? extends NxmNxReg> reg, long regValue, short dscp, Integer inPort, Short table) {
         List<Action> actionList = new ArrayList<Action>();
 
 
@@ -500,10 +501,10 @@ public class OpenFlowUtils {
 
     }
 
-    private static Action createMarkDscpAction(int dscp, int order){
+    private static Action createMarkDscpAction(short dscp, int order){
         ActionBuilder dscpActionBuilder = new ActionBuilder();
         SetNwTosActionBuilder setNwTosActionBuilder = new SetNwTosActionBuilder();
-        setNwTosActionBuilder.setTos(dscp);
+        setNwTosActionBuilder.setTos(ActionUtil.dscpToTos(dscp).intValue());
         dscpActionBuilder.setAction(new SetNwTosActionCaseBuilder().setSetNwTosAction(setNwTosActionBuilder.build()).build());
         dscpActionBuilder.setOrder(order);
         dscpActionBuilder.setKey(new ActionKey(order));
