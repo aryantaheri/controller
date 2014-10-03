@@ -4,11 +4,13 @@ import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.felix.service.command.Descriptor;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
+import org.opendaylight.controller.samples.differentiatedforwarding.TunnelEndPoint;
 import org.osgi.framework.ServiceRegistration;
 
 public class TenantTunnelObserverCLI {
@@ -24,7 +26,7 @@ public class TenantTunnelObserverCLI {
     public void start() {
         final Dictionary<String, Object> props = new Hashtable<String, Object>();
         props.put("osgi.command.scope", "odpcontroller");
-        props.put("osgi.command.function", new String[] { "getTunnelsMap", "loadTunnelEndPoints" });
+        props.put("osgi.command.function", new String[] { "getTunnelsMap", "loadTunnelEndPoints", "getTunnelEndPoints" });
         this.sr = ServiceHelper.registerGlobalServiceWReg(TenantTunnelObserverCLI.class, this, props);
     }
 
@@ -47,6 +49,20 @@ public class TenantTunnelObserverCLI {
         }
         HashMap<String, List<Tunnel>> tunnelsMap = tunnelObserver.getTunnelsMap();
         System.out.println(tunnelsMap);
+    }
+
+    @Descriptor("Retrieves Tunnels Map. This returns just those tunnels with a tunnel key (e.g. Tenants Tunnels)")
+    public void getTunnelEndPoints(
+            @Descriptor("Container") String containerName) {
+        System.out.println("TenantTunnelObserver.getTunnelEndPoints");
+
+        ITunnelObserver tunnelObserver = (ITunnelObserver) ServiceHelper.getInstance(ITunnelObserver.class, containerName, this);
+        if(tunnelObserver == null){
+            System.err.println("TenantTunnelObserverCLI - getTunnelEndPoints: TenantTunnelObserver is not available");
+            return;
+        }
+        HashMap<String, Set<TunnelEndPoint>> tepsMap = tunnelObserver.getTunnelEndPoints();
+        System.out.println(tepsMap);
     }
 
     @Descriptor("Load Tunnel EndPoints. ")
