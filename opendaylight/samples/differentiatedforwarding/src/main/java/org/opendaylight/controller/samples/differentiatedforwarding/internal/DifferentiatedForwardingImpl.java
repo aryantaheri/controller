@@ -74,7 +74,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.N
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.EtherType;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg0;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg7;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.slf4j.Logger;
@@ -424,9 +424,9 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         }
     }
     /**
-     * 0- Check reg0 to see if it has been marked before. Discard DSCP marks not specified by us.
+     * 0- Check reg7 to see if it has been marked before. Discard DSCP marks not specified by us.
      * 1- Mark internal ingress traffic (from connected VMs) with DSCP
-     * 2- Set reg0
+     * 2- Set reg7
      * 3- Resubmit to make it compatible
      * @param tunnel
      * @param node
@@ -442,10 +442,10 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         FlowBuilder flowBuilder = new FlowBuilder();
         NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(node, table);
 
-        //match:ip,in_port=$A_TENANT_PORT,reg0=0
+        //match:ip,in_port=$A_TENANT_PORT,reg7=0
         OpenFlowUtils.createEtherTypeMatch(matchBuilder, new EtherType((long) EtherTypes.IPv4.intValue()));
         OpenFlowUtils.createInPortMatch(matchBuilder, node, inPort);
-        OpenFlowUtils.createRegMatch(matchBuilder, NxmNxReg0.class, 0L);
+        OpenFlowUtils.createRegMatch(matchBuilder, NxmNxReg7.class, 0L);
         flowBuilder.setMatch(matchBuilder.build());
 
         flowBuilder.setId(new FlowId(flowName));
@@ -465,8 +465,8 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             InstructionsBuilder isb = new InstructionsBuilder();
             List<Instruction> instructions = new ArrayList<Instruction>();
 
-            //actions=set_field:X->ip_dscp,set_field:1->reg0,resubmit(,0)
-            OpenFlowUtils.createIngressDscpMarkResubmitInstructions(ib, NxmNxReg0.class, 1L, tunnelsDscp.get(tunnel), null, resubmitTable);
+            //actions=set_field:X->ip_dscp,set_field:1->reg7,resubmit(,0)
+            OpenFlowUtils.createIngressDscpMarkResubmitInstructions(ib, NxmNxReg7.class, 1L, tunnelsDscp.get(tunnel), null, resubmitTable);
             ib.setOrder(0);
             ib.setKey(new InstructionKey(0));
             instructions.add(ib.build());
@@ -485,13 +485,13 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
     @Override
     public List<Long> getTenantLocalInterfaces(Node ofNode, String segmentationId) {
-        log.debug("getTenantLocalInterfaces: ofNode {} SegmentationId {}", ofNode, segmentationId);
+        log.debug("getTenantLocalInterfaces: ofNode {} SegmentationId {}", ofNode.getId(), segmentationId);
         org.opendaylight.controller.sal.core.Node ovsNode = getOvsNode(ofNode);
         List<NeutronPort> neutronPorts = getNeutronPorts(segmentationId);
         log.trace("getTenantLocalInterfaces: neutronPorts {}", neutronPorts);
         if (neutronPorts == null) return null;
         List<Long> ofPorts = getOfPorts(ovsNode, neutronPorts);
-        log.trace("getTenantLocalInterfaces: ovsNode={} segmentationId={}, ofPorts={}", ovsNode, segmentationId, ofPorts);
+        log.trace("getTenantLocalInterfaces: ovsNode={} segmentationId={}, ofPorts={}", ovsNode.getID(), segmentationId, ofPorts);
         return ofPorts;
     }
 
