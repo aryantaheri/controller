@@ -152,9 +152,9 @@ public class Activator extends ComponentActivatorAbstractBase {
         if (imp.equals(MDSALConsumer.class)) {
             c.setInterface(IMDSALConsumer.class.getName(), null);
         }
-        if (imp.equals(MDSALProvider.class)) {
-            c.setInterface(IMDSALProvider.class.getName(), null);
-        }
+//        if (imp.equals(MDSALProvider.class)) {
+//            c.setInterface(IMDSALProvider.class.getName(), null);
+//        }
         c.add(createServiceDependency()
                 .setService(BindingAwareBroker.class)
                 .setCallbacks("setBindingAwareBroker", "unsetBindingAwareBroker")
