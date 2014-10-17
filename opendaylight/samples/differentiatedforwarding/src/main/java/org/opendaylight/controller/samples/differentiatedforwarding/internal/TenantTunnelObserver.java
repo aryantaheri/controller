@@ -338,6 +338,60 @@ public class TenantTunnelObserver implements OvsdbInventoryListener,
                 tunnelEndPointsMap);
     }
 
+    @Override
+    public void loadTunnelEndPoints(String segmentationId) {
+        log.debug("loadTunnelEndPoints");
+        INeutronNetworkCRUD neutronNetworkService = (INeutronNetworkCRUD) ServiceHelper
+                .getGlobalInstance(INeutronNetworkCRUD.class, this);
+        if (neutronNetworkService == null) {
+            log.error("loadTunnelEndPoints: INeutronNetworkCRUD is not available");
+            return;
+        }
+        List<NeutronNetwork> neutronNetworks = neutronNetworkService
+                .getAllNetworks();
+        log.debug("loadTunnelEndPoints: neutronNetworks {}", neutronNetworks);
+        if (neutronNetworks == null)
+            return;
+        for (NeutronNetwork neutronNetwork : neutronNetworks) {
+            String nnSegmentationId = neutronNetwork.getProviderSegmentationID();
+            if (segmentationId != nnSegmentationId)
+                continue;
+
+            Set<TunnelEndPoint> teps = tunnelEndPointsMap.get(segmentationId);
+            if (teps == null) {
+                teps = new HashSet<TunnelEndPoint>();
+                tunnelEndPointsMap.put(segmentationId, teps);
+            }
+
+            List<NeutronPort> neutronPorts = neutronNetwork.getPortsOnNetwork();
+            log.debug(
+                    "loadTunnelEndPoints: segmentationId {}, neutronPorts {}",
+                    segmentationId, neutronPorts);
+            if (neutronPorts == null)
+                continue;
+
+            List<Node> ovsdbNodes = findOvsdbNodes(neutronPorts);
+            log.debug("loadTunnelEndPoints: segmentationId {}, ovsdbNodes {}",
+                    segmentationId, ovsdbNodes);
+            if (ovsdbNodes == null)
+                continue;
+
+            List<TunnelEndPoint> extractedTeps = extractTunnelEndPoints(
+                    ovsdbNodes, segmentationId);
+            log.debug(
+                    "loadTunnelEndPoints: segmentationId {}, extractedTeps {}",
+                    segmentationId, extractedTeps);
+            if (extractedTeps == null)
+                continue;
+            teps.addAll(extractedTeps);
+
+            tunnelEndPointsMap.put(segmentationId, teps);
+        }
+        removeTunnelEdgesUsingTeps();
+        log.debug("loadTunnelEndPoints: tunnelEndPointsMap {}",
+                tunnelEndPointsMap);
+    }
+
     private List<TunnelEndPoint> extractTunnelEndPoints(List<Node> ovsdbNodes,
             String segmentationId) {
         List<TunnelEndPoint> teps = new ArrayList<TunnelEndPoint>();

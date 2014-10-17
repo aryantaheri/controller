@@ -8,4 +8,5 @@ public interface ITunnelObserver {
     public HashMap<String,List<Tunnel>> getTunnelsMap();
     public HashMap<String,Set<TunnelEndPoint>> getTunnelEndPoints();
     public void loadTunnelEndPoints();
+    public void loadTunnelEndPoints(String segmentationId);
 }

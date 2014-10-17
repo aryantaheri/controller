@@ -107,6 +107,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 //    private ConcurrentMap<HostNodePair, HashMap<org.opendaylight.controller.sal.core.NodeConnector, FlowEntry>> rulesDB;
     private static final String DIFF_FORWARDING_RULES_CACHE_NAME = "differentiatedforwarding.ipswitch.rules";
     private Map<Tunnel, Short> tunnelsDscp;
+    private Map<Tunnel, Path> tunnelsPath;
 
     /**
      * OpenFlow Tables
@@ -138,6 +139,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         log.debug("init()");
         allocateRulesDB();
         tunnelsDscp = new HashMap<>();
+        tunnelsPath = new HashMap<>();
     }
 
     /**
@@ -170,7 +172,6 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         log.debug("stop()");
     }
 
-    @SuppressWarnings("unchecked")
     private void allocateRulesDB() {
         if (this.clusterContainerService == null) {
             log.trace("allocateRulesDB: clusterContainerService is null, can't create cache");
@@ -186,6 +187,11 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 //        }
     }
 
+    public void programTunnels(List<Tunnel> tunnels, int classNum, boolean write){
+        for (Tunnel tunnel : tunnels) {
+            programTunnelForwarding(tunnel, classNum, write);
+        }
+    }
 
     /**
      * TODO: first we should forward the interesting traffic to another table, and apply these policies there.
@@ -215,9 +221,16 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         }
 
         log.debug("programTunnelForwarding: selected path for tunnel {} with classNum {} is {}", tunnel, classNum, path);
-        List<Edge> edges = path.getEdges();
 
-        tunnelsDscp.put(tunnel, (short) classNum);
+        if(write){
+            tunnelsPath.put(tunnel, path);
+            tunnelsDscp.put(tunnel, (short) classNum);
+        } else {
+            tunnelsPath.remove(tunnel);
+            tunnelsDscp.remove(tunnel);
+        }
+
+        List<Edge> edges = path.getEdges();
 
         /**
          * lastInPort-srcNode-outPort ----> inPort-dstNode
@@ -1291,5 +1304,12 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             }
         }
         return null;
+    }
+
+    @Override
+    public Path getProgrammedPath(Tunnel tunnel) {
+        Path path = tunnelsPath.get(tunnel);
+        log.info("getProgrammedPath: Tunnel {}, Path {}, DSCP {}", tunnel, path, tunnelsDscp.get(tunnel));
+        return path;
     }
 }

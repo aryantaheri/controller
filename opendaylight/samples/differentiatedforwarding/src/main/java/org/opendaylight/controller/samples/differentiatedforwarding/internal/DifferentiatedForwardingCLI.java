@@ -1,5 +1,6 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.internal;
 
+import java.util.ArrayList;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -7,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.felix.service.command.Descriptor;
+import org.opendaylight.controller.sal.core.Path;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
@@ -28,7 +30,7 @@ public class DifferentiatedForwardingCLI {
     public void start() {
         final Dictionary<String, Object> props = new Hashtable<String, Object>();
         props.put("osgi.command.scope", "odpcontroller");
-        props.put("osgi.command.function", new String[] { "programTunnel", "programTEPs", "getMdNode", "getExternalInterface", "getTenantLocalInterfaces" });
+        props.put("osgi.command.function", new String[] { "programTunnel", "programTEPs", "programNetwork", "getMdNode", "getExternalInterface", "getTenantLocalInterfaces", "getProgrammedPath" });
         this.sr = ServiceHelper.registerGlobalServiceWReg(DifferentiatedForwardingCLI.class, this, props);
     }
 
@@ -99,6 +101,83 @@ public class DifferentiatedForwardingCLI {
 
     }
 
+    public void programNetwork(
+            @Descriptor("Container on the context of which the routing service need to be looked up") String container,
+            @Descriptor("Tunnel key/SegmentationId from getTunnelEndPoints") String segmentationId,
+            @Descriptor("Tunnel class (k in KShortestRoutes)") int classNum){
+
+        System.out.println("DifferentiatedForwardingCLI - programNetwork");
+
+        ITunnelObserver tunnelObserver = (ITunnelObserver) ServiceHelper.getInstance(ITunnelObserver.class, container, this);
+        if(tunnelObserver == null){
+            System.err.println("DifferentiatedForwardingCLI - programNetwork: TenantTunnelObserver is not available");
+            return;
+        }
+        IForwarding forwarding = (IForwarding) ServiceHelper.getInstance(IForwarding.class, container, this);
+        if(forwarding == null){
+            System.err.println("DifferentiatedForwardingCLI - programNetwork: IForwarding is not available");
+            return;
+        }
+        tunnelObserver.loadTunnelEndPoints(segmentationId);
+        Set<TunnelEndPoint> teps = tunnelObserver.getTunnelEndPoints().get(segmentationId);
+        List<Tunnel> tunnels = new ArrayList<>();
+
+        for (TunnelEndPoint srcTep : teps) {
+            for (TunnelEndPoint dstTep : teps) {
+                if (srcTep.equals(dstTep))
+                    continue;
+                try {
+                    tunnels.add(new Tunnel(srcTep, dstTep));
+                } catch (Exception e) {
+                    System.err.println("Can't create Tunnel with srcTep: "
+                            + srcTep
+                            + "and dstTep: "
+                            + dstTep
+                            + "Error: "
+                            + e.getStackTrace());
+                }
+            }
+        }
+
+        for (Tunnel tunnel : tunnels) {
+            System.out.println("programTunnelForwarding: " + tunnel + ", classNum: " + classNum);
+            forwarding.programTunnelForwarding(tunnel, classNum, true);
+        }
+    }
+
+    public Path getProgrammedPath(
+            @Descriptor("Container on the context of which the routing service need to be looked up") String container,
+            @Descriptor("Tunnel key from getTunnelEndPoints") String tunnelKey,
+            @Descriptor("Src TEP index from getTunnelEndPoints().get") int srcTepIndex,
+            @Descriptor("Dst TEP index from getTunnelEndPoints().get") int dstTepIndex){
+        System.out.println("DifferentiatedForwardingCLI - getProgrammedPath");
+
+        ITunnelObserver tunnelObserver = (ITunnelObserver) ServiceHelper.getInstance(ITunnelObserver.class, container, this);
+        if(tunnelObserver == null){
+            System.err.println("DifferentiatedForwardingCLI - getProgrammedPath: TenantTunnelObserver is not available");
+            return null;
+        }
+        IForwarding forwarding = (IForwarding) ServiceHelper.getInstance(IForwarding.class, container, this);
+        if(forwarding == null){
+            System.err.println("DifferentiatedForwardingCLI - getProgrammedPath: IForwarding is not available");
+            return null;
+        }
+        TunnelEndPoint srcTep = tunnelObserver.getTunnelEndPoints().get(tunnelKey).toArray(new TunnelEndPoint[0])[srcTepIndex];
+        TunnelEndPoint dstTep = tunnelObserver.getTunnelEndPoints().get(tunnelKey).toArray(new TunnelEndPoint[0])[dstTepIndex];
+        System.out.println("Src TEP:" + srcTep);
+        System.out.println("Dst TEP:" + dstTep);
+        Path path = null;
+        try {
+            Tunnel tunnel = new Tunnel(srcTep, dstTep);
+            System.out.println("Tunnel: " + tunnel);
+            path = forwarding.getProgrammedPath(tunnel);
+        } catch (Exception e) {
+            System.err.println("DifferentiatedForwardingCLI - getProgrammedPath: ERROR");
+            e.printStackTrace();
+        }
+
+        return path;
+    }
     public void getMdNode(
             @Descriptor("Container on the context of which the routing service need to be looked up") String container,
             @Descriptor("Node name") String nodeName){
