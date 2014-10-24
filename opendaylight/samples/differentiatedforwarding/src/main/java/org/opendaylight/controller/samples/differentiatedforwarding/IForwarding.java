@@ -13,4 +13,5 @@ public interface IForwarding {
     public List<Long> getTenantLocalInterfaces(Node ofNode, String segmentationId);
     public Path getProgrammedPath(Tunnel tunnel);
     public void programTunnelForwarding(Tunnel tunnel, int classNum, boolean write);
+    public String reportNetwork(String segmentationId);
 }

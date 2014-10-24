@@ -24,6 +24,7 @@ import org.opendaylight.controller.networkconfig.neutron.INeutronNetworkCRUD;
 import org.opendaylight.controller.networkconfig.neutron.NeutronNetwork;
 import org.opendaylight.controller.networkconfig.neutron.NeutronPort;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.IKShortestRoutes;
+import org.opendaylight.controller.routing.yenkshortestpaths.internal.WeightedEdge;
 import org.opendaylight.controller.routing.yenkshortestpaths.internal.YKShortestPaths;
 import org.opendaylight.controller.sal.core.Edge;
 import org.opendaylight.controller.sal.core.Path;
@@ -38,8 +39,10 @@ import org.opendaylight.controller.sal.routing.IRouting;
 import org.opendaylight.controller.sal.utils.EtherTypes;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
+import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
 import org.opendaylight.controller.samples.differentiatedforwarding.OpenFlowUtils;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
+import org.opendaylight.controller.samples.differentiatedforwarding.TunnelEndPoint;
 import org.opendaylight.controller.switchmanager.IInventoryListener;
 import org.opendaylight.controller.switchmanager.ISwitchManager;
 import org.opendaylight.controller.topologymanager.ITopologyManager;
@@ -857,10 +860,10 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
             @Override
             public void onFailure(final Throwable t) {
-                log.error("writeFlow: onFailure flowBuilder {} nodeBuilder {}", flowBuilder.getFlowName(), nodeBuilder.getId());
+                log.error("writeFlow: onFailure flowBuilder {} nodeBuilder {}", flowBuilder.getFlowName(), nodeBuilder.getId(), t);
                 if(t instanceof OptimisticLockFailedException) {
                     // Failed because of concurrent transaction modifying same data
-                    log.error("writeFlow: onFailure: Failed because of concurrent transaction modifying same data, we should retry", t);
+                    log.error("writeFlow: onFailure: Failed because of concurrent transaction modifying same data, we should retry");
                     if ((retries - 1) > 0){
                         log.debug("writeFlow: retrying for flowBuilder {} nodeBuilder {}", flowBuilder.getFlowName(), nodeBuilder.getId());
                         writeFlow(flowBuilder, nodeBuilder, retries - 1);
@@ -868,7 +871,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                         log.error("writeFlow: no more retries for flowBuilder {} nodeBuilder {}. Aborting", flowBuilder.getFlowName(), nodeBuilder.getId());
                     }
                 } else {
-                    log.error("writeFlow: onFailure", t);
+//                    log.error("writeFlow: onFailure", t);
 
                 }
 
@@ -1311,5 +1314,68 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         Path path = tunnelsPath.get(tunnel);
         log.info("getProgrammedPath: Tunnel {}, Path {}, DSCP {}", tunnel, path, tunnelsDscp.get(tunnel));
         return path;
+    }
+
+    @Override
+    public String reportNetwork(String segmentationId){
+        StringBuilder reportBuilder = new StringBuilder();
+        StringBuilder detailsBuilder = new StringBuilder();
+
+        ITunnelObserver tunnelObserver = (ITunnelObserver) ServiceHelper.getGlobalInstance(ITunnelObserver.class, this);
+        if(tunnelObserver == null){
+            log.error("reportNetwork: TenantTunnelObserver is not available");
+            return "TenantTunnelObserver is not available";
+        }
+        tunnelObserver.loadTunnelEndPoints(segmentationId);
+        Set<TunnelEndPoint> teps = tunnelObserver.getTunnelEndPoints().get(segmentationId);
+
+        List<Tunnel> tunnels = null;
+        try {
+            tunnels = Tunnel.createTunnels(teps);
+        } catch (Exception e) {
+            log.error("reportNetwork: Can't create Tunnels from TEPs", e);
+            return "Can't create Tunnels from TEPs";
+        }
+
+        int sumHops = 0, sumWeight = 0;
+        for (Tunnel tunnel : tunnels) {
+            Path tunnelPath = getProgrammedPath(tunnel);
+
+            double pathWeight = 0;
+            for (Edge edge : tunnelPath.getEdges()) {
+                pathWeight += ((WeightedEdge) edge).getWeight();
+            }
+
+            sumHops += tunnelPath.getEdges().size();
+            sumWeight += pathWeight;
+            detailsBuilder.append(tunnel)
+                            .append('\n')
+                            .append(" #Hops:" + tunnelPath.getEdges().size())
+                            .append('\n')
+                            .append(" Weight: " + pathWeight)
+                            .append('\n');
+        }
+        int avgHops = sumHops / tunnels.size();
+        int avgWeight = sumWeight / tunnels.size();
+
+        reportBuilder.append("Details: ")
+                        .append('\n')
+                        .append(detailsBuilder.toString())
+                        .append('\n');
+
+        reportBuilder.append("Summary: ")
+                        .append('\n')
+                        .append(" Number of Tunnels: " + tunnels.size())
+                        .append('\n')
+                        .append(" Avg #Hops: " + avgHops)
+                        .append('\n')
+                        .append(" Avg Weight: " + avgWeight)
+                        .append('\n')
+                        .append(" DSCP: " + tunnelsDscp.get(segmentationId))
+                        .append('\n');;
+
+
+
+        return reportBuilder.toString();
     }
 }
