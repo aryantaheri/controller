@@ -260,7 +260,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                 programTunnelSource(tunnel, outPortMDNode, outPortMDNC, write);
 
                 writeLLDPRule(outPortMDNode);
-                writeNormalRule(outPortMDNode);
+//                writeNormalRule(outPortMDNode);
             } else {
                 // Transit node or err
                 lastInPortMDNode = constructMDNode(lastInPort.getNode());
@@ -280,7 +280,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         // 2) Be more strict, discover IP-MAC resolution, and program flow accordingly
         Node tepDstNode = constructMDNode(lastInPort.getNode());
         writeLLDPRule(tepDstNode);
-        writeNormalRule(tepDstNode);
+//        writeNormalRule(tepDstNode);
     }
 
     /**
