@@ -2,6 +2,9 @@ package org.opendaylight.controller.samples.differentiatedforwarding;
 
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import org.opendaylight.controller.sal.core.NodeConnector;
 
@@ -169,5 +172,19 @@ public class Tunnel implements Serializable {
                 srcNodeConnector + "(" + srcAddress + ")" +
                 "->" +
                 dstNodeConnector + "(" + dstAddress + ")";
+    }
+
+    public static List<Tunnel> createTunnels(Set<TunnelEndPoint> teps) throws Exception{
+        List<Tunnel> tunnels = new ArrayList<>();
+
+        for (TunnelEndPoint srcTep : teps) {
+            for (TunnelEndPoint dstTep : teps) {
+                if (srcTep.equals(dstTep))
+                    continue;
+
+                tunnels.add(new Tunnel(srcTep, dstTep));
+            }
+        }
+        return tunnels;
     }
 }
