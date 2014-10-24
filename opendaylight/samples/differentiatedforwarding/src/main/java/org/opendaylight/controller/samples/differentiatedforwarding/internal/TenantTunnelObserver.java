@@ -397,17 +397,19 @@ public class TenantTunnelObserver implements OvsdbInventoryListener,
         List<TunnelEndPoint> teps = new ArrayList<TunnelEndPoint>();
         for (Node ovsNode : ovsdbNodes) {
             InetAddress tepIp = getTepIp(ovsNode);
-            NodeConnector tepNc = getTepNc(ovsNode);
-            if (tepIp == null || tepNc == null) {
+            List<NodeConnector> tepNcs = getTepNcs(ovsNode);
+            if (tepIp == null || tepNcs == null) {
                 log.error(
-                        "loadTunnels: cannot determine TEP NC {} or IP {}. skipping to next OVSDB Node",
-                        tepNc, tepIp);
+                        "loadTunnels: cannot determine TEP NCs {} or IP {}. skipping to next OVSDB Node",
+                        tepNcs, tepIp);
                 continue;
             }
-            TunnelEndPoint tep = new TunnelEndPoint(tepNc, tepIp,
-                    segmentationId);
-            if (!teps.contains(tep))
-                teps.add(tep);
+            for (NodeConnector tepNc : tepNcs) {
+                TunnelEndPoint tep = new TunnelEndPoint(tepNc, tepIp,
+                        segmentationId);
+                if (!teps.contains(tep))
+                    teps.add(tep);
+            }
         }
         return teps;
     }
@@ -442,13 +444,14 @@ public class TenantTunnelObserver implements OvsdbInventoryListener,
         return address;
     }
 
-    private NodeConnector getTepNc(Node ovsNode) {
-        NodeConnector tepNc = null;
+    private List<NodeConnector> getTepNcs(Node ovsNode) {
+        List<NodeConnector> tepNcs = new ArrayList<NodeConnector>();
         Map<String, Row> rows = ovsdbConfigService.getRows(ovsNode,
                 ovsdbConfigService.getTableName(ovsNode, Interface.class));
         if (rows == null)
             return null;
         for (String rowUuid : rows.keySet()) {
+            NodeConnector tepNc = null;
             Interface intf = ovsdbConfigService.getTypedRow(ovsNode,
                     Interface.class, rows.get(rowUuid));
             if (intf != null
@@ -466,8 +469,8 @@ public class TenantTunnelObserver implements OvsdbInventoryListener,
 
                 if (intf.getOpenFlowPortColumn().getData() == null
                         || intf.getOpenFlowPortColumn().getData().size() == 0) {
-                    log.trace("getTepNc: interface OFPort is not present.");
-                    return null;
+                    log.error("getTepNc: interface OFPort is not present.");
+                    continue;
                 }
                 // FIXME: This can be terribly bad, NodeConnector only accepts
                 // Short values, while OVSDB stores them in Long
@@ -475,20 +478,25 @@ public class TenantTunnelObserver implements OvsdbInventoryListener,
                         ((Long) intf.getOpenFlowPortColumn().getData()
                                 .toArray()[0]).shortValue());
                 if (ofPortShort <= 0) {
-                    log.trace(
-                            "getTepNc: received OpenFlowPort {} is not valid. srcNodeConnctor is not available. Returning",
+                    log.error(
+                            "getTepNc: received OpenFlowPort {} is not valid. srcNodeConnctor is not available. Continueing",
                             ofPortShort);
-                    return null;
+                    continue;
                 }
                 tepNc = NodeConnector.fromStringNoNode(
                         NodeConnector.NodeConnectorIDType.OPENFLOW,
                         ofPortShort.toString(), ofNode);
-                return tepNc;
+                tepNcs.add(tepNc);
             }
         }
-        log.error("getTepNc: can not find TEP NodeConnector for ovsNode {}",
-                ovsNode);
-        return null;
+
+        if (tepNcs.size() == 0){
+            log.error("getTepNc: can not find TEP NodeConnector(s) for ovsNode {}",
+                    ovsNode);
+            return null;
+        } else {
+            return tepNcs;
+        }
     }
 
     private List<Node> findOvsdbNodes(List<NeutronPort> neutronPorts) {
