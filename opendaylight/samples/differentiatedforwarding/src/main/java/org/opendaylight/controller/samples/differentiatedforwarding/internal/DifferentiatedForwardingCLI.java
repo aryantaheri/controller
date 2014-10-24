@@ -30,7 +30,7 @@ public class DifferentiatedForwardingCLI {
     public void start() {
         final Dictionary<String, Object> props = new Hashtable<String, Object>();
         props.put("osgi.command.scope", "odpcontroller");
-        props.put("osgi.command.function", new String[] { "programTunnel", "programTEPs", "programNetwork", "getMdNode", "getExternalInterface", "getTenantLocalInterfaces", "getProgrammedPath" });
+        props.put("osgi.command.function", new String[] { "programTunnel", "programTEPs", "programNetwork", "getMdNode", "getExternalInterface", "getTenantLocalInterfaces", "getProgrammedPath", "reportNetwork" });
         this.sr = ServiceHelper.registerGlobalServiceWReg(DifferentiatedForwardingCLI.class, this, props);
     }
 
@@ -178,6 +178,21 @@ public class DifferentiatedForwardingCLI {
 
         return path;
     }
+
+    public void reportNetwork(
+            @Descriptor("Container on the context of which the routing service need to be looked up") String container,
+            @Descriptor("Tunnel key/SegmentationId from getTunnelEndPoints") String segmentationId){
+        System.out.println("DifferentiatedForwardingCLI - reportNetwork");
+
+        IForwarding forwarding = (IForwarding) ServiceHelper.getInstance(IForwarding.class, container, this);
+        if(forwarding == null){
+            System.err.println("DifferentiatedForwardingCLI - reportNetwork: IForwarding is not available");
+            return;
+        }
+        String report = forwarding.reportNetwork(segmentationId);
+        System.out.println(report);
+    }
+
     public void getMdNode(
             @Descriptor("Container on the context of which the routing service need to be looked up") String container,
             @Descriptor("Node name") String nodeName){

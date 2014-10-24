@@ -1372,7 +1372,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                         .append(" Avg Weight: " + avgWeight)
                         .append('\n')
                         .append(" DSCP: " + tunnelsDscp.get(segmentationId))
-                        .append('\n');;
+                        .append('\n');
 
 
 
