@@ -31,12 +31,18 @@ public class Tunnel implements Serializable {
     }
 
     public Tunnel(TunnelEndPoint srcTep, TunnelEndPoint dstTep) throws Exception {
-        this.srcNodeConnector = srcTep.getTepNodeConnector();
-        this.dstNodeConnector = dstTep.getTepNodeConnector();
-        this.srcAddress = srcTep.getTepAddress();
-        this.dstAddress = dstTep.getTepAddress();
-        if (!srcTep.getTunnelKey().equalsIgnoreCase(dstTep.getTunnelKey())) throw new Exception("Src TEP and Dst TEP doesn't have a same Tunnel Key");
-        this.tunnelKey = srcTep.getTunnelKey();
+        if (srcTep.getTepLocalAddress().equals(dstTep.getTepRemoteAddress()) &&
+                srcTep.getTepRemoteAddress().equals(dstTep.getTepLocalAddress()) &&
+                srcTep.getTunnelKey().equalsIgnoreCase(dstTep.getTunnelKey())){
+
+            this.srcNodeConnector = srcTep.getTepNodeConnector();
+            this.dstNodeConnector = dstTep.getTepNodeConnector();
+            this.srcAddress = srcTep.getTepLocalAddress();
+            this.dstAddress = dstTep.getTepLocalAddress();
+            this.tunnelKey = srcTep.getTunnelKey();
+        } else {
+           throw new Exception("Src TEP and Dst TEP doesn't belong to the same tunnel. Src: " + srcTep + " Dst: " + dstTep);
+        }
     }
 
     public NodeConnector getSrcNodeConnector() {
@@ -181,8 +187,12 @@ public class Tunnel implements Serializable {
             for (TunnelEndPoint dstTep : teps) {
                 if (srcTep.equals(dstTep))
                     continue;
+                if (srcTep.getTepLocalAddress().equals(dstTep.getTepRemoteAddress()) &&
+                        srcTep.getTepRemoteAddress().equals(dstTep.getTepLocalAddress()) &&
+                        srcTep.getTunnelKey().equalsIgnoreCase(dstTep.getTunnelKey())){
 
-                tunnels.add(new Tunnel(srcTep, dstTep));
+                    tunnels.add(new Tunnel(srcTep, dstTep));
+                }
             }
         }
         return tunnels;

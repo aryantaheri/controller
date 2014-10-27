@@ -1330,6 +1330,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         Set<TunnelEndPoint> teps = tunnelObserver.getTunnelEndPoints().get(segmentationId);
 
         List<Tunnel> tunnels = null;
+        List<Short> dscps = new ArrayList<>();
         try {
             tunnels = Tunnel.createTunnels(teps);
         } catch (Exception e) {
@@ -1348,15 +1349,18 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
             sumHops += tunnelPath.getEdges().size();
             sumWeight += pathWeight;
+            dscps.add(tunnelsDscp.get(tunnel));
             detailsBuilder.append(tunnel)
                             .append('\n')
                             .append(" #Hops:" + tunnelPath.getEdges().size())
                             .append('\n')
                             .append(" Weight: " + pathWeight)
+                            .append('\n')
+                            .append(" DSCP: " + tunnelsDscp.get(tunnel))
                             .append('\n');
         }
-        int avgHops = sumHops / tunnels.size();
-        int avgWeight = sumWeight / tunnels.size();
+        double avgHops = sumHops / tunnels.size();
+        double avgWeight = sumWeight / tunnels.size();
 
         reportBuilder.append("Details: ")
                         .append('\n')
@@ -1371,7 +1375,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                         .append('\n')
                         .append(" Avg Weight: " + avgWeight)
                         .append('\n')
-                        .append(" DSCP: " + tunnelsDscp.get(segmentationId))
+                        .append(" DSCP(s): " + dscps)
                         .append('\n');
 
 

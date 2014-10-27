@@ -396,20 +396,28 @@ public class TenantTunnelObserver implements OvsdbInventoryListener,
             String segmentationId) {
         List<TunnelEndPoint> teps = new ArrayList<TunnelEndPoint>();
         for (Node ovsNode : ovsdbNodes) {
-            InetAddress tepIp = getTepIp(ovsNode);
-            List<NodeConnector> tepNcs = getTepNcs(ovsNode);
-            if (tepIp == null || tepNcs == null) {
-                log.error(
-                        "loadTunnels: cannot determine TEP NCs {} or IP {}. skipping to next OVSDB Node",
-                        tepNcs, tepIp);
+//            InetAddress tepIp = getTepIp(ovsNode);
+//            List<NodeConnector> tepNcs = getTepNcs(ovsNode);
+
+//            if (tepIp == null || tepNcs == null) {
+//                log.error(
+//                        "loadTunnels: cannot determine TEP NCs {} or IP {}. skipping to next OVSDB Node",
+//                        tepNcs, tepIp);
+//                continue;
+//            }
+//            for (NodeConnector tepNc : tepNcs) {
+//                // FIXME
+//                TunnelEndPoint tep = new TunnelEndPoint(tepNc, tepIp, null,
+//                        segmentationId);
+//                if (!teps.contains(tep))
+//                    teps.add(tep);
+//            }
+            List<TunnelEndPoint> nodeTeps = getTeps(ovsNode, segmentationId);
+            if (nodeTeps == null){
+                log.error("extractTunnelEndPoints: can't find TEPs for ovsNode {}", ovsNode);
                 continue;
             }
-            for (NodeConnector tepNc : tepNcs) {
-                TunnelEndPoint tep = new TunnelEndPoint(tepNc, tepIp,
-                        segmentationId);
-                if (!teps.contains(tep))
-                    teps.add(tep);
-            }
+            teps.addAll(nodeTeps);
         }
         return teps;
     }
@@ -496,6 +504,90 @@ public class TenantTunnelObserver implements OvsdbInventoryListener,
             return null;
         } else {
             return tepNcs;
+        }
+    }
+
+    /**
+     * All tunnel ports will be used by resident tenants. Retrieving all tunnel ports and creating a TEPs set should be fine.
+     * @param ovsNode
+     * @param segmentationId
+     * @return All TEPs on this OVS node, which can be used by the resident tenant with segmentation Id <code>segmentationId</code>
+     */
+    private List<TunnelEndPoint> getTeps(Node ovsNode, String segmentationId) {
+        List<TunnelEndPoint> teps = new ArrayList<TunnelEndPoint>();
+
+        Map<String, Row> rows = ovsdbConfigService.getRows(ovsNode, ovsdbConfigService.getTableName(ovsNode, Interface.class));
+        if (rows == null)
+            return null;
+        for (String rowUuid : rows.keySet()) {
+            NodeConnector tepNc = null;
+            Interface intf = ovsdbConfigService.getTypedRow(ovsNode, Interface.class, rows.get(rowUuid));
+            if (intf != null
+                    && intf.getTypeColumn().getData() != null
+                    && (intf.getTypeColumn()
+                            .getData()
+                            .equalsIgnoreCase(
+                                    org.opendaylight.controller.samples.differentiatedforwarding.Constants.NETWORK_TYPE_GRE) || intf
+                            .getTypeColumn()
+                            .getData()
+                            .equalsIgnoreCase(
+                                    org.opendaylight.controller.samples.differentiatedforwarding.Constants.NETWORK_TYPE_VXLAN))) {
+                // Found TEP Interface
+                Node ofNode = getOpenFlowNode(ovsNode, rowUuid, intf);
+
+                // Find OF_Port number
+                if (intf.getOpenFlowPortColumn().getData() == null
+                        || intf.getOpenFlowPortColumn().getData().size() == 0) {
+                    log.error("getTeps: interface OFPort is not present.");
+                    continue;
+                }
+                // FIXME: This can be terribly bad, NodeConnector only accepts
+                // Short values, while OVSDB stores them in Long
+                Short ofPortShort = new Short(
+                        ((Long) intf.getOpenFlowPortColumn().getData()
+                                .toArray()[0]).shortValue());
+                if (ofPortShort <= 0) {
+                    log.error(
+                            "getTepNc: received OpenFlowPort {} is not valid. srcNodeConnctor is not available. Continueing",
+                            ofPortShort);
+                    continue;
+                }
+
+                if (intf.getOptionsColumn().getData() == null || intf.getOptionsColumn().getData().size() == 0){
+                    log.error("getTeps: interface doesn't have required Options.");
+                    continue;
+                }
+                String localIp = intf.getOptionsColumn().getData().get("local_ip");
+                String remoteIp = intf.getOptionsColumn().getData().get("remote_ip");
+                if (localIp == null || remoteIp == null){
+                    log.error("getTeps: interface doesn't have local_ip {} or remote_ip {}.", localIp, remoteIp);
+                    continue;
+                }
+
+                InetAddress localAddress = null, remoteAddress = null;
+                try {
+                    localAddress = InetAddress.getByName(localIp);
+                    remoteAddress = InetAddress.getByName(remoteIp);
+                } catch (UnknownHostException e) {
+                    log.error("Can't create local {} or remote {} addresses", localIp, remoteIp, e);
+                    continue;
+                }
+
+
+                tepNc = NodeConnector.fromStringNoNode(
+                        NodeConnector.NodeConnectorIDType.OPENFLOW,
+                        ofPortShort.toString(), ofNode);
+
+                TunnelEndPoint tep = new TunnelEndPoint(tepNc, localAddress, remoteAddress, segmentationId);
+                teps.add(tep);
+            }
+        }
+
+        if (teps.size() == 0){
+            log.error("getTeps: can not find TEP(s) for ovsNode {}", ovsNode);
+            return null;
+        } else {
+            return teps;
         }
     }
 
@@ -885,18 +977,13 @@ public class TenantTunnelObserver implements OvsdbInventoryListener,
         List<Tunnel> tunnels = new ArrayList<>();
         for (String key : tepMap.keySet()) {
             Set<TunnelEndPoint> teps = tepMap.get(key);
-            for (TunnelEndPoint srcTep : teps) {
-                for (TunnelEndPoint dstTep : teps) {
-                    if (srcTep.equals(dstTep))
-                        continue;
-                    try {
-                        tunnels.add(new Tunnel(srcTep, dstTep));
-                    } catch (Exception e) {
-                        log.error(
-                                "Can't create Tunnel with srcTep {} and dstTep {}. Error {}",
-                                srcTep, dstTep, e.getStackTrace());
-                    }
-                }
+
+            try {
+                tunnels.addAll(Tunnel.createTunnels(teps));
+            } catch (Exception e1) {
+                log.error(
+                        "Can't create Tunnels from TEPs {}",
+                        teps, e1);
             }
         }
         return tunnels;

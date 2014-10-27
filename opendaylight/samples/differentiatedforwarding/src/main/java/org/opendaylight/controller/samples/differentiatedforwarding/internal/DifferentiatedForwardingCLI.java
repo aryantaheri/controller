@@ -120,23 +120,13 @@ public class DifferentiatedForwardingCLI {
         }
         tunnelObserver.loadTunnelEndPoints(segmentationId);
         Set<TunnelEndPoint> teps = tunnelObserver.getTunnelEndPoints().get(segmentationId);
-        List<Tunnel> tunnels = new ArrayList<>();
 
-        for (TunnelEndPoint srcTep : teps) {
-            for (TunnelEndPoint dstTep : teps) {
-                if (srcTep.equals(dstTep))
-                    continue;
-                try {
-                    tunnels.add(new Tunnel(srcTep, dstTep));
-                } catch (Exception e) {
-                    System.err.println("Can't create Tunnel with srcTep: "
-                            + srcTep
-                            + "and dstTep: "
-                            + dstTep
-                            + "Error: "
-                            + e.getStackTrace());
-                }
-            }
+        List<Tunnel> tunnels = new ArrayList<>();
+        try {
+            tunnels = Tunnel.createTunnels(teps);
+        } catch (Exception e1) {
+            System.err.println("Can't create Tunnels from TEPs: " + teps);
+            System.err.println(e1);
         }
 
         for (Tunnel tunnel : tunnels) {
