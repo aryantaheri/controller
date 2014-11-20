@@ -45,7 +45,7 @@
       <artifactId>mulavito.algorithms</artifactId>
       <version>0.1</version>
       <scope>system</scope>
-      <systemPath>/home/aryan/workspace/workspace-sdn/forwarding/MuLaViTo/build/MuLaViTo.jar</systemPath>
+      <systemPath>/home/aryan/workspace/forwarding/MuLaViTo/build/MuLaViTo.jar</systemPath>
     </dependency>
   </dependencies>
 
@@ -71,6 +71,7 @@
               edu.uci.ics.jung.algorithms.shortestpath,
               edu.uci.ics.jung.algorithms.filters,
               edu.uci.ics.jung.graph.util,
+              <!-- mulavito.algorithms.shortestpath.ksp.Yen,  -->
               org.apache.felix.dm,
               org.osgi.framework,
               org.apache.felix.service.command,
