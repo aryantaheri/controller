@@ -20,15 +20,16 @@ public class SshUtil {
     private static Logger log = LoggerFactory.getLogger(SshUtil.class);
     // Remote intermediate devstack testing:> ssh aryan@haisen10 'ssh fedora@controller "sudo ip netns exec $NS ssh -i $KEY $VM_IP $CMD"'
     // Remote controller openstack         :> ssh fedora@controller "sudo ip netns exec $NS ssh -i $KEY $VM_IP $CMD"
-    private static String CONTROLLER_HOST = "192.168.10.250";
-    private static String CONTROLLER_USER = "fedora";
-    private static String CONTROLLER_KEY = "/home/aryan/.ssh/id_rsa";
+    private static String CONTROLLER_HOST = "152.94.0.185"; // "192.168.10.250";
+    private static String CONTROLLER_USER = "root"; // "fedora";
+    private static String CONTROLLER_KEY = "/home/aryan/.ssh/id_rsa_simple";
 
+    private static boolean useIntermediate = false;
     private static String INTERMEDIATE_HOST = "haisen10.ux.uis.no";
     private static String INTERMEDIATE_USER = "aryan";
     private static String INTERMEDIATE_KEY = "/home/aryan/.ssh/id_rsa_simple";
 
-    private static String VM_SSH_OPTIONS = "-o \'StrictHostKeyChecking no\' -o \'UserKnownHostsFile=/dev/null\' -o \'LogLevel=error\'";
+    public static String VM_SSH_OPTIONS = "-o \'StrictHostKeyChecking no\' -o \'UserKnownHostsFile=/dev/null\' -o \'LogLevel=error\'";
 
     private static String INTERMEDIATE_SSH_CMD = "ssh " + CONTROLLER_HOST;
 
@@ -40,11 +41,11 @@ public class SshUtil {
         String vmIp = "10.0.0.13";
         String vmCmd = "top";
 
-        execVmCmd(vmNameSpace, vmKey, vmUser, vmIp, vmCmd, true);
+        execVmCmd(vmNameSpace, vmKey, vmUser, vmIp, vmCmd);
 
     }
 
-    public static CommandOutPut execVmCmd(String vmNameSpace, String vmKeyLocation, String vmUser, String vmIp, String vmCmd, boolean useIntermediate) throws IOException{
+    public static CommandOutPut execVmCmd(String vmNameSpace, String vmKeyLocation, String vmUser, String vmIp, String vmCmd) throws IOException{
         String host = null;
         String user = null;
         String key = null;
@@ -77,7 +78,7 @@ public class SshUtil {
                 final Command cmd = session.exec(cmdString);
                 String output = IOUtils.readFully(cmd.getInputStream()).toString();
                 String error = IOUtils.readFully(cmd.getErrorStream()).toString();
-                log.info("execVmCmd vmIP {}, vmNS {}, vmCmd {}, vmCmdOutput {}, vmCmdError {}", vmIp, vmNameSpace, vmCmd, output, error);
+                log.info("execVmCmd vmIP {}, vmNS {}, vmCmd {}, vmCmdOutput \n {}, vmCmdError \n {}", vmIp, vmNameSpace, vmCmd, output, error);
 
                 cmd.join(5, TimeUnit.SECONDS);
                 log.info("execVmCmd Exit Status: {}", cmd.getExitStatus());
@@ -96,7 +97,57 @@ public class SshUtil {
         }
     }
 
-    public static void execVmCmdAsync(String vmNameSpace, String vmKey, String vmUser, String vmIp, String vmCmd, String controllerOutPutFile, boolean useIntermediate) throws IOException{
+    public static CommandOutPut execControllerCmd(String controllerCmd) throws IOException{
+        String host = null;
+        String user = null;
+        String key = null;
+        String cmdString = null;
+
+        if (useIntermediate) {
+            host = INTERMEDIATE_HOST;
+            user = INTERMEDIATE_USER;
+            key = INTERMEDIATE_KEY;
+
+            cmdString = "ssh " + " -i " + CONTROLLER_KEY + " " + CONTROLLER_USER + "@" + CONTROLLER_HOST + " " + "\"" + controllerCmd + "\"";
+        } else {
+            host = CONTROLLER_HOST;
+            user = CONTROLLER_USER;
+            key = CONTROLLER_KEY;
+
+            cmdString = controllerCmd;
+        }
+
+        log.debug("cmdString: " + cmdString);
+        final SSHClient ssh = new SSHClient();
+        ssh.loadKnownHosts();
+        ssh.connect(host);
+        try {
+            ssh.authPublickey(user, key);
+            final Session session = ssh.startSession();
+            try {
+                final Command cmd = session.exec(cmdString);
+                String output = IOUtils.readFully(cmd.getInputStream()).toString();
+                String error = IOUtils.readFully(cmd.getErrorStream()).toString();
+                log.info("execControllerCmd controllerCmd {} vmCmdOutput \n {}, vmCmdError \n {}", controllerCmd, output, error);
+
+                cmd.join(5, TimeUnit.SECONDS);
+                log.info("execControllerCmd Exit Status: {}", cmd.getExitStatus());
+
+                if (cmd.getExitStatus() != 0)
+                    log.error("execControllerCmd cmd: {} Exit Status: {} Error msg: {}", cmdString, cmd.getExitStatus(), cmd.getExitErrorMessage());
+
+                CommandOutPut cmdOutPut = new CommandOutPut(cmdString, output, error, cmd.getExitStatus(), cmd.getExitErrorMessage());
+                return cmdOutPut;
+            } finally {
+                session.close();
+            }
+        } finally {
+            ssh.disconnect();
+            ssh.close();
+        }
+    }
+
+    public static void execVmCmdAsync(String vmNameSpace, String vmKey, String vmUser, String vmIp, String vmCmd, String controllerOutPutFile) throws IOException{
 
     }
 }
