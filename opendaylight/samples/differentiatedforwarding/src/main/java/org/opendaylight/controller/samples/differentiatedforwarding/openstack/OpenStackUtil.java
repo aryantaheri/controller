@@ -6,9 +6,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.BwReport;
+import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.ReachabilityReport;
 import org.openstack4j.api.OSClient;
 import org.openstack4j.model.compute.Flavor;
+import org.openstack4j.model.compute.Keypair;
 import org.openstack4j.model.compute.Server;
+import org.openstack4j.model.compute.ext.Hypervisor;
 import org.openstack4j.model.identity.Tenant;
 import org.openstack4j.model.image.Image;
 import org.openstack4j.model.network.Network;
@@ -36,21 +39,36 @@ public class OpenStackUtil {
 
     private static Logger log = LoggerFactory.getLogger(OpenStackUtil.class);
 
-    public static final String vmUser = "cirros";
-    public static final String vmPubKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDBKfIhlJ1NkcRJdbyqtaE07UGBTuH5L71WCZ406jRLM5itEaMdM+HuTimetTwBN7W5HO4msEFllAdZCansEXmmY6jEfFMHtpbXOwKso1fKPmcjE/oj+cVBbF0ORgtnf4Rr8/b/QbIHm3sdStl0nO5IE/PKsSxXU1I+OWTkeUMVbcbqOZc/dPW9uoEBYlA+3O4p7tCAy/HlO0TuNUpghLyyaVNdv+KOnNPzMO4x8BfIV+oi6D3Z0WB0/9aci6UN8RsIoopG6HKh5aMM1a4wXZko5nW7Zv8JAUurj2kpu3Ia+9BGrlhB1GESBGOxFm7Yv9QuQAvTlNVLuNhcvrW+MS1T fedora@f-control-1";
+    public static final String defaultVmUser = "cirros";
+    public static final String defaultKeyPair = "cloud-keypair";
+    public static final String defaultVmPubKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDBKfIhlJ1NkcRJdbyqtaE07UGBTuH5L71WCZ406jRLM5itEaMdM+HuTimetTwBN7W5HO4msEFllAdZCansEXmmY6jEfFMHtpbXOwKso1fKPmcjE/oj+cVBbF0ORgtnf4Rr8/b/QbIHm3sdStl0nO5IE/PKsSxXU1I+OWTkeUMVbcbqOZc/dPW9uoEBYlA+3O4p7tCAy/HlO0TuNUpghLyyaVNdv+KOnNPzMO4x8BfIV+oi6D3Z0WB0/9aci6UN8RsIoopG6HKh5aMM1a4wXZko5nW7Zv8JAUurj2kpu3Ia+9BGrlhB1GESBGOxFm7Yv9QuQAvTlNVLuNhcvrW+MS1T fedora@f-control-1";
+    public static final String defaultTenantName = "admin";
+    public static final String defaultImage = "cirros-iperf-nuttcp";
+    public static final String defaultFlavor = "m1.nano";
+
     public static Map<String, String> vmKeyPair;
+    private static OSClient os;
     static {
         vmKeyPair = new HashMap<String, String>();
-        vmKeyPair.put("cloud-keypair", "/home/fedora/devstack/cloud-keypair.pem");
-//        myMap = Collections.unmodifiableMap(aMap);
+        vmKeyPair.put(defaultKeyPair, "/tmp/cloud-keypair.pem");
 
+        os = OSFactory.builder()
+                .endpoint("http://152.94.0.185:5000/v2.0")
+                .credentials("admin","adminpass")
+                .tenantName("admin")
+                .authenticate();
     }
 
     public static void main(String[] args) {
-        OSClient os = OSFactory.builder()
-                .endpoint("http://127.0.0.1:5000/v2.0")
-                .credentials("admin","admin")
-                .tenantName("demo")
+//        OSClient os = OSFactory.builder()
+//                .endpoint("http://127.0.0.1:5000/v2.0")
+//                .credentials("admin","admin")
+//                .tenantName(tenantName)
+//                .authenticate();
+        OSClient os2 = OSFactory.builder()
+                .endpoint("http://152.94.0.185:5000/v2.0")
+                .credentials("admin","adminpass")
+                .tenantName("admin")
                 .authenticate();
 //
 //        List<? extends Tenant> tenants = os.identity().tenants().list();
@@ -75,17 +93,24 @@ public class OpenStackUtil {
 //        String networkUuid = networks.get(1).getId();
 //        String keyPairName = "cloud-keypair";
 //        int number = 3;
-//        createInstances(os, "vm", "cirros-disk-iperf-nuttcp", "m1.nano", "net1", "cloud-keypair", 3);
+//        createInstances(os, tenantName, "vm", "cirros-disk-iperf-nuttcp", "m1.nano", "net2", "cloud-keypair", 3);
+//        OpenStackManager.createNetwork(os, defaultTenantName, "net20", "10.20.0.0/24");
+        reachability();
 //        testNuttcp();
-        testNuttcpPersistentServer(os, "net1");
-//        list();
+//        testNuttcpPersistentServer(os, "anet2", false);
+//        list(os);
     }
 
-    private static void list(){
-        OSClient os = OSFactory.builder()
-                .endpoint("http://127.0.0.1:5000/v2.0")
-                .credentials("admin", "admin").tenantName("demo")
-                .authenticate();
+    private static void reachability() {
+        List<? extends Server> instances = os.compute().servers().list();
+        Network network = OpenStackManager.getNetwork(os, "net100");
+        for (Server server : instances) {
+            ReachabilityReport report = ReachabilityManager.runReachability(server, network);
+            log.info("ReachabilityReport: {}", report);
+        }
+    }
+    private static void list(OSClient os){
+
 
         List<? extends Tenant> tenants = os.identity().tenants().list();
         System.out.println(tenants);
@@ -93,6 +118,8 @@ public class OpenStackUtil {
         System.out.println(images);
         List<? extends Flavor> flavors = os.compute().flavors().list();
         System.out.println(flavors);
+        List<? extends Hypervisor> hosts = os.compute().hypervisors().list();
+        System.out.println(hosts);
         List<? extends Server> servers = os.compute().servers().list(true);
         for (Server server : servers) {
             System.out.println(server);
@@ -105,35 +132,19 @@ public class OpenStackUtil {
 
     }
 
-    private static Network getNetwork(OSClient os, String networkName){
-        List<? extends Network> networks = os.networking().network().list();
-        for (Network network : networks) {
-            if (network.getName().equalsIgnoreCase(networkName)) return network;
-        }
-        return null;
-    }
 
-    private static Image getImage(OSClient os, String imageName){
-        List<? extends Image> images = os.images().list();
-        for (Image image : images) {
-            if (image.getName().equalsIgnoreCase(imageName)) return image;
-        }
-        return null;
-    }
 
-    private static Flavor getFlavor(OSClient os, String flavorName){
-        List<? extends Flavor> flavors = os.compute().flavors().list();
-        for (Flavor flavor : flavors) {
-            if (flavor.getName().equalsIgnoreCase(flavorName)) return flavor;
-        }
-        return null;
-    }
+    private static void createInstances(OSClient os, String tenantName, String namePrefix, String imageName, String flavorName, String networkName, String keyPairName, int number){
 
-    private static void createInstances(OSClient os, String namePrefix, String imageName, String flavorName, String networkName, String keyPairName, int number){
-        String imageUuid = getImage(os, imageName).getId();
-        String flavorUuid = getFlavor(os, flavorName).getId();
-        String networkUuid = getNetwork(os, networkName).getId();
-        List<Server> instances = InstanceManager.createInstances(os, namePrefix, imageUuid, flavorUuid, networkUuid, keyPairName, number);
+
+        Image image = OpenStackManager.getImage(os, imageName);
+        Flavor flavor = OpenStackManager.getFlavor(os, flavorName);
+        Network network = OpenStackManager.getNetwork(os, networkName);
+        if (network == null) OpenStackManager.createNetwork(os, tenantName, networkName, "10.2.0.0/24");
+
+        OpenStackManager.createKeyPair(os, keyPairName, defaultVmPubKey);
+
+        List<Server> instances = OpenStackManager.createInstances(os, namePrefix, image.getId(), flavor.getId(), network.getId(), keyPairName, number);
         for (Server server : instances) {
             System.out.println(server);
         }
@@ -150,13 +161,52 @@ public class OpenStackUtil {
 
     private static void testNuttcp(OSClient os, String networkName){
         List<? extends Server> servers = os.compute().servers().list(true);
-        Network network = getNetwork(os, networkName);
-        NuttcpManager.measureBw(servers, network,  BwReport.Type.TCP, true);
+        Network network = OpenStackManager.getNetwork(os, networkName);
+        NuttcpManager.measureBw(servers, network,  BwReport.Type.TCP);
     }
 
     private static void testNuttcpPersistentServer(OSClient os, String networkName){
         List<? extends Server> servers = os.compute().servers().list(true);
-        Network network = getNetwork(os, networkName);
-        NuttcpManager.measureBwPersistentServer(servers, network, BwReport.Type.TCP, true);
+        Network network = OpenStackManager.getNetwork(os, networkName);
+        NuttcpManager.measureBwPersistentServer(servers, network, BwReport.Type.TCP);
     }
+
+    public static List<Server> createInstances(String namePrefix, String networkName, int number){
+        Image image = OpenStackManager.getImage(os, defaultImage);
+        Flavor flavor = OpenStackManager.getFlavor(os, defaultFlavor);
+        Network network = OpenStackManager.getNetwork(os, networkName);
+        Keypair keypair = os.compute().keypairs().get(defaultKeyPair);
+        if (network == null || image == null || flavor == null || keypair == null){
+            log.error("createInstances: missing params image {} flavor {} network {} keypair {}", image, flavor, network, keypair);
+            return null;
+        }
+        List<Server> instances = OpenStackManager.createInstances(os, namePrefix, image.getId(), flavor.getId(), network.getId(), keypair.getName(), number);
+        return instances;
+    }
+
+    public static void deleteAllInstances() {
+        OpenStackManager.deleteAllInstances(os);
+    }
+
+    public static Network createNetwork(String networkName, String cidr, boolean mayExist){
+        if (mayExist){
+            Network network = OpenStackManager.getNetwork(os, networkName);
+            if (network != null){
+                log.warn("createNetwork: Network {} exists", network);
+                return network;
+            }
+        }
+        return OpenStackManager.createNetwork(os, defaultTenantName, networkName, cidr);
+    }
+
+    public static void deleteNetwork(String networkUuid){
+        OpenStackManager.deleteNetwork(os, networkUuid);
+    }
+
+//    private void areUp(List<? extends Server> servers) {
+//        List<? extends Server> loadedServers = os.compute().servers().list(true);
+//        for (Server server : servers) {
+//            loadedServers.get
+//        }
+//    }
 }
