@@ -1,5 +1,9 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 import org.openstack4j.model.compute.Server;
 import org.openstack4j.model.network.Network;
 
@@ -12,6 +16,10 @@ public class BwReport {
     String rawError;
     String rawOutput;
 
+    long startTime;
+    long endTime;
+    long duration;
+
     String transmitterIp;
     String receiverIp;
     String transmitterHost;
@@ -21,6 +29,7 @@ public class BwReport {
     int retrans;
     int transmitterCpu;
     int receiverCpu;
+
 
     RateUnit rateUnit;
     enum RateUnit {
@@ -38,13 +47,15 @@ public class BwReport {
     public enum Type {
         TCP, UDP
     }
-    public BwReport(Server transmitter, Server receiver, Network network, String rawOutput, String rawError, Type type) {
+    public BwReport(Server transmitter, Server receiver, Network network, String rawOutput, String rawError, Type type, long startTime, long endTime) {
         this.transmitter = transmitter;
         this.receiver = receiver;
         this.network = network;
         this.rawError = rawError;
         this.rawOutput = rawOutput;
         this.type = type;
+        this.startTime = startTime;
+        this.endTime = endTime;
 
         transmitterIp = transmitter.getAddresses().getAddresses(network.getName()).get(0).getAddr();
         receiverIp = receiver.getAddresses().getAddresses(network.getName()).get(0).getAddr();
@@ -115,32 +126,129 @@ public class BwReport {
 
     }
 
+
+
+    public Server getTransmitter() {
+        return transmitter;
+    }
+
+
+    public Server getReceiver() {
+        return receiver;
+    }
+
+
+    public Network getNetwork() {
+        return network;
+    }
+
+
+    public String getRawError() {
+        return rawError;
+    }
+
+
+    public String getRawOutput() {
+        return rawOutput;
+    }
+
+
+    public String getTransmitterIp() {
+        return transmitterIp;
+    }
+
+
+    public String getReceiverIp() {
+        return receiverIp;
+    }
+
+
+    public String getTransmitterHost() {
+        return transmitterHost;
+    }
+
+
+    public String getReceiverHost() {
+        return receiverHost;
+    }
+
+
+    public float getRate() {
+        return rate;
+    }
+
+
+    public float getRtt() {
+        return rtt;
+    }
+
+
+    public int getRetrans() {
+        return retrans;
+    }
+
+
+    public int getTransmitterCpu() {
+        return transmitterCpu;
+    }
+
+
+    public int getReceiverCpu() {
+        return receiverCpu;
+    }
+
+
+    public RateUnit getRateUnit() {
+        return rateUnit;
+    }
+
+
+    public Type getType() {
+        return type;
+    }
+
+
     @Override
     public String toString() {
         String toString = "";
+        DateFormat dateFormat = new SimpleDateFormat("yyyyMMdd-HHmmss");
+        Date start = new Date(startTime);
+        Date end = new Date(endTime);
+
         switch (type) {
         case TCP:
-            toString = " BwReport: "
+            toString = "\n BwReport: "
                     + " transmitterIp=" + transmitterIp
                     + " receiverIp=" + receiverIp
                     + " transmitterHost="  + transmitterHost
                     + " receiverHost=" + receiverHost
-                    + " Rate=" + rate + "_" + rateUnit
+                    + " networkName=" + network.getName()
+                    + " rate=" + rate + "_" + rateUnit
                     + " txCpu=" + transmitterCpu
                     + " rxCpu=" + receiverCpu
                     + " retrans=" + retrans
-                    + " rtt=" + rtt;
+                    + " rtt=" + rtt
+                    + " startTime=" + dateFormat.format(start)
+                    + " endTime=" + dateFormat.format(end)
+                    + " duration=" + (endTime - startTime);
+
+            if (rawError != null && !rawError.trim().equalsIgnoreCase("")){
+                toString = toString
+                        + " rawOutput=" + rawOutput
+                        + " rawError=" + rawError;
+
+            }
 
             break;
-        case UDP:
-
-            break;
+//        case UDP:
+//
+//            break;
         default:
             toString = "BwReport: unrecognized type \n rawOutput: " + rawOutput + "\n rawError: " + rawError;
             break;
         }
         // if error != null do
-        toString = toString + "\n rawOutput: " + rawOutput + "\n rawError: " + rawError;
+//        toString = toString + "\n rawOutput: " + rawOutput + "\n rawError: " + rawError;
         return toString;
     }
 
