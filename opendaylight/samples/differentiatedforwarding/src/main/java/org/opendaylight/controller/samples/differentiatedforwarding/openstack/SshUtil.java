@@ -78,7 +78,7 @@ public class SshUtil {
                 final Command cmd = session.exec(cmdString);
                 String output = IOUtils.readFully(cmd.getInputStream()).toString();
                 String error = IOUtils.readFully(cmd.getErrorStream()).toString();
-                log.info("execVmCmd vmIP {}, vmNS {}, vmCmd {}, vmCmdOutput \n {}, vmCmdError \n {}", vmIp, vmNameSpace, vmCmd, output, error);
+                log.info("execVmCmd vmIP {}, vmNS {}, vmCmd {}, vmCmdOutput {}, vmCmdError {}", vmIp, vmNameSpace, vmCmd, output, error);
 
                 cmd.join(5, TimeUnit.SECONDS);
                 log.info("execVmCmd Exit Status: {}", cmd.getExitStatus());
