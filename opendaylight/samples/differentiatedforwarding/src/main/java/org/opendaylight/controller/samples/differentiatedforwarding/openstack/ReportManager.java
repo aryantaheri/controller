@@ -9,6 +9,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.BwExpReport;
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.BwReport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,12 +29,13 @@ public class ReportManager {
         return name;
     }
 
-    public static void writeReport(List<BwReport> reports, String outputFile, boolean append){
+    public static void writeReport(List<BwExpReport> reports, String outputFile, boolean append){
         PrintWriter writer = null;
         try {
             writer = new PrintWriter(new BufferedWriter(new FileWriter(outputFile, append)));
-            for (BwReport bwReport : reports) {
-                writer.println(bwReport.toString());
+            for (BwExpReport bwExpReport : reports) {
+                if (bwExpReport == null) continue;
+                writer.println(bwExpReport.toString());
             }
         } catch (IOException e) {
             log.error("writeReport", e);
@@ -42,6 +44,7 @@ public class ReportManager {
                 writer.close();
             }
         }
+        log.info("writeReport: generated log: {}", outputFile);
     }
 
     public static void writeReport(String[] reports, String outputFile, boolean append){
@@ -58,5 +61,22 @@ public class ReportManager {
                 writer.close();
             }
         }
+        log.info("writeReport: generated log: {}", outputFile);
     }
+
+    public static void writeReport(Object report, String outputFile, boolean append){
+        PrintWriter writer = null;
+        try {
+            writer = new PrintWriter(new BufferedWriter(new FileWriter(outputFile, append)));
+            writer.println(report.toString());
+        } catch (IOException e) {
+            log.error("writeReport", e);
+        } finally {
+            if (writer != null){
+                writer.close();
+            }
+        }
+        log.info("writeReport: generated log: {}", outputFile);
+    }
+
 }
