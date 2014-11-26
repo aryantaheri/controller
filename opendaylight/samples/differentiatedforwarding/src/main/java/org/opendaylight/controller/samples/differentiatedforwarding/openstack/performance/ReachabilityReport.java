@@ -18,7 +18,9 @@ public class ReachabilityReport {
     String transmitterHost;
     String receiverHost;
 
-    boolean reachable = false;
+    boolean pingReachable = false;
+    boolean sshReachable = false;
+
     float rtt = -1;
     Type type;
 
@@ -26,13 +28,14 @@ public class ReachabilityReport {
         PHYSICAL_VM, VM_VM
     }
 
-    public ReachabilityReport(Server transmitter, Server receiver, Network network, String rawOutput, String rawError, int exitStatus, Type type) {
+    public ReachabilityReport(Server transmitter, Server receiver, Network network, String rawOutput, String rawError, int exitStatus, boolean sshReachable, Type type) {
         this.transmitter = transmitter;
         this.receiver = receiver;
         this.network = network;
         this.rawError = rawError;
         this.rawOutput = rawOutput;
         this.exitStatus = exitStatus;
+        this.sshReachable = sshReachable;
         this.type = type;
 
         setReceiverFields();
@@ -43,21 +46,21 @@ public class ReachabilityReport {
 
     private void setPingFields() {
         if (exitStatus != 0){
-            reachable = false;
+            pingReachable = false;
         } else {
-            reachable = true;
+            pingReachable = true;
         }
         if (rawOutput == null || rawOutput == ""){
-            reachable = false;
+            pingReachable = false;
             return;
         }
 
         String[] splits = rawOutput.split("rtt");
         if (splits.length > 1){
             rtt = Float.parseFloat(splits[1].split("/")[4]);
-            reachable = true;
+            pingReachable = true;
         } else {
-            reachable = false;
+            pingReachable = false;
         }
     }
 
@@ -73,7 +76,19 @@ public class ReachabilityReport {
     }
 
     public boolean isReachable() {
-        return reachable;
+        return pingReachable && sshReachable;
+    }
+
+    public boolean isPingReachable() {
+        return pingReachable ;
+    }
+
+    public void setSshReachable(boolean sshReachable) {
+        this.sshReachable = sshReachable;
+    }
+
+    public boolean isSshReachable() {
+        return sshReachable;
     }
 
     public Server getReceiver() {
@@ -89,7 +104,9 @@ public class ReachabilityReport {
                     + " receiverIp=" + receiverIp
                     + " receiverHost=" + receiverHost
                     + " rtt=" + rtt
-                    + " reachable=" + reachable;
+                    + " pingReachable=" + pingReachable
+                    + " sshReachable=" + sshReachable
+                    + " reachable=" + isReachable();
 
             break;
         case VM_VM:

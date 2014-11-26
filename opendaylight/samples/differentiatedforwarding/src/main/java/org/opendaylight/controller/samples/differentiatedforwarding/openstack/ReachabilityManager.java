@@ -31,11 +31,40 @@ public class ReachabilityManager {
 
         try {
             CommandOutPut output = SshUtil.execControllerCmd(controllerCmd);
-            ReachabilityReport report = new ReachabilityReport(null, receiver, vmNetwork, output.getOutput(), output.getError(), output.getExitStatus(), ReachabilityReport.Type.PHYSICAL_VM);
+            boolean sshReachable = false;
+            ReachabilityReport report = new ReachabilityReport(null, receiver, vmNetwork, output.getOutput(), output.getError(), output.getExitStatus(), sshReachable, ReachabilityReport.Type.PHYSICAL_VM);
+
+            if (report.isPingReachable()){
+                CommandOutPut sshOutPut = sshReachability(receiver, vmNetwork);
+                if (sshOutPut.getExitStatus() == 0){
+                    sshReachable = true;
+                    report.setSshReachable(sshReachable);
+                } else {
+                    sshReachable = false;
+                    report.setSshReachable(sshReachable);
+                }
+            }
+            log.info("runReachability: {}", report);
             return report;
         } catch (IOException e) {
             log.error("runReachability", e);
-            return new ReachabilityReport(null, receiver, vmNetwork, null, e.getMessage() + "\n" + e.getStackTrace(), -1, ReachabilityReport.Type.PHYSICAL_VM );
+            return new ReachabilityReport(null, receiver, vmNetwork, null, e.getMessage() + "\n" + e.getStackTrace(), -1, false, ReachabilityReport.Type.PHYSICAL_VM );
+        }
+    }
+
+    private static CommandOutPut sshReachability(Server receiver, Network vmNetwork){
+        String vmNameSpace = getNameSpace(vmNetwork);
+        String address = receiver.getAddresses().getAddresses(vmNetwork.getName()).get(0).getAddr();
+        String vmCmd = "uptime";
+        String vmKeyLocation = OpenStackUtil.vmKeyPair.get(receiver.getKeyName());
+        String vmUser = OpenStackUtil.defaultVmUser;
+        try {
+            CommandOutPut output = SshUtil.execVmCmd(vmNameSpace, vmKeyLocation, vmUser, address, vmCmd);
+            log.debug("sshReachability: output {}", output);
+            return output;
+        } catch (IOException e) {
+            log.error("sshReachability", e);
+            return null;
         }
     }
 
