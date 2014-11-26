@@ -84,7 +84,17 @@ public class OpenStackManager {
     }
 
     public static void deleteNetworkById(OSClient os, String networkUuid){
-        os.networking().network().delete(networkUuid);
+        int retries = 0;
+        while (retries < 10) {
+            retries++;
+            try {
+                Thread.sleep(1000*30*retries);
+                os.networking().network().delete(networkUuid);
+                return;
+            } catch (Exception e) {
+                log.warn("deleteNetworkById: network is busy probably {}", e.getMessage());
+            }
+        }
     }
 
     public static void deleteNetwork(OSClient os, String networkName){

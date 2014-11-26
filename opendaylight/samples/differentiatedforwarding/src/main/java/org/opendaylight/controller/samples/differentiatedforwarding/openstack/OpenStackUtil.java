@@ -12,6 +12,7 @@ import org.openstack4j.model.compute.Flavor;
 import org.openstack4j.model.compute.Keypair;
 import org.openstack4j.model.compute.Server;
 import org.openstack4j.model.compute.ext.Hypervisor;
+import org.openstack4j.model.identity.Access;
 import org.openstack4j.model.identity.Tenant;
 import org.openstack4j.model.image.Image;
 import org.openstack4j.model.network.Network;
@@ -47,6 +48,7 @@ public class OpenStackUtil {
     public static final String defaultFlavor = "m1.nano";
 
     public static Map<String, String> vmKeyPair;
+    private static Access access;
     private static OSClient os;
     static {
         vmKeyPair = new HashMap<String, String>();
@@ -57,6 +59,8 @@ public class OpenStackUtil {
                 .credentials("admin","adminpass")
                 .tenantName("admin")
                 .authenticate();
+        access = os.getAccess();
+
     }
 
     public static void main(String[] args) {
@@ -95,7 +99,9 @@ public class OpenStackUtil {
 //        int number = 3;
 //        createInstances(os, tenantName, "vm", "cirros-disk-iperf-nuttcp", "m1.nano", "net2", "cloud-keypair", 3);
 //        OpenStackManager.createNetwork(os, defaultTenantName, "net20", "10.20.0.0/24");
-        reachability();
+//        reachability();
+//        deleteNetwork("class1net1");
+        deleteAllInstances();
 //        testNuttcp();
 //        testNuttcpPersistentServer(os, "anet2", false);
 //        list(os);
@@ -188,6 +194,11 @@ public class OpenStackUtil {
         OpenStackManager.deleteAllInstances(os);
     }
 
+    public static void deleteInstances(List<? extends Server> instances) {
+        OSClient osClient = OSFactory.clientFromAccess(access);
+        OpenStackManager.deleteInstances(osClient, instances);
+    }
+
     public static Network createNetwork(String networkName, String cidr, boolean mayExist){
         if (mayExist){
             Network network = OpenStackManager.getNetwork(os, networkName);
@@ -199,8 +210,12 @@ public class OpenStackUtil {
         return OpenStackManager.createNetwork(os, defaultTenantName, networkName, cidr);
     }
 
-    public static void deleteNetwork(String networkUuid){
-        OpenStackManager.deleteNetwork(os, networkUuid);
+    public static void deleteNetworkById(String networkUuid){
+        OpenStackManager.deleteNetworkById(os, networkUuid);
+    }
+
+    public static void deleteNetwork(String networkName){
+        OpenStackManager.deleteNetwork(os, networkName);
     }
 
 //    private void areUp(List<? extends Server> servers) {
