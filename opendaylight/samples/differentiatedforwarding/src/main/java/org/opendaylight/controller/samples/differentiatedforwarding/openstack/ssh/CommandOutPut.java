@@ -5,7 +5,7 @@ public class CommandOutPut {
     private String cmd;
     private String output;
     private String error;
-    private int exitStatus;
+    private int exitStatus = -10;
     private String exitErrorMessage;
 
 
