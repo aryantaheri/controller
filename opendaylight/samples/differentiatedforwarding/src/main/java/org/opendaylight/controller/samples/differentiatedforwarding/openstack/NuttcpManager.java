@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 public class NuttcpManager {
     private static Logger log = LoggerFactory.getLogger(NuttcpManager.class);
 
-    static int PERIOD = 20; // Transmission period in second
+    static int PERIOD = 60; // Transmission period in second
 
     /**
      * Start nuttcp server on all instance with -S, and iterate over client instances
@@ -75,14 +75,19 @@ public class NuttcpManager {
             break;
         }
 
+        long startTime = System.currentTimeMillis();
+        long endTime;
         try {
             CommandOutPut txOutput = SshUtil.execVmCmd(vmNameSpace, vmKeyLocation, vmUser, txAddress, vmTxCmd);
-            BwReport bwReport = new BwReport(transmitter, receiver, vmNetwork, txOutput.getOutput(), txOutput.getError(), type);
-            log.info("runNuttcpClient: txOutput {}", txOutput);
+            endTime = System.currentTimeMillis();
+
+            BwReport bwReport = new BwReport(transmitter, receiver, vmNetwork, txOutput.getOutput(), txOutput.getError(), type, startTime, endTime);
+//            log.info("runNuttcpClient: txOutput {}", txOutput);
             return bwReport;
         } catch (IOException e) {
             log.error("runNuttcpClient", e);
-            return new BwReport(transmitter, receiver, vmNetwork, null, e.getMessage() + "\n" + e.getStackTrace(), type);
+            endTime = System.currentTimeMillis();
+            return new BwReport(transmitter, receiver, vmNetwork, null, e.getMessage() + "\n" + e.getStackTrace(), type, startTime, endTime);
         }
     }
 
@@ -135,16 +140,20 @@ public class NuttcpManager {
             vmSrcCmd = "sudo /usr/bin/nuttcp -t " + " -T" + PERIOD + " -fparse -R10g -u " + dstAddress ;
             break;
         }
+        long startTime = System.currentTimeMillis();
+        long endTime;
         try {
             CommandOutPut dstOutput = SshUtil.execVmCmd(vmNameSpace, vmKeyLocation, vmUser, dstAddress, vmDstCmd);
             log.debug("measureBw: dstOutput {}", dstOutput);
             CommandOutPut srcOutput = SshUtil.execVmCmd(vmNameSpace, vmKeyLocation, vmUser, srcAddress, vmSrcCmd);
             log.info("measureBw: srcOutput {}", srcOutput);
-            BwReport bwReport = new BwReport(src, dst, vmNetwork, srcOutput.getOutput(), srcOutput.getError(), type);
+            endTime = System.currentTimeMillis();
+            BwReport bwReport = new BwReport(src, dst, vmNetwork, srcOutput.getOutput(), srcOutput.getError(), type, startTime, endTime);
             return bwReport;
         } catch (IOException e) {
             log.error("measureBw", e);
-            return new BwReport(src, dst, vmNetwork, null, e.getMessage() + "\n" + e.getStackTrace(), type);
+            endTime = System.currentTimeMillis();
+            return new BwReport(src, dst, vmNetwork, null, e.getMessage() + "\n" + e.getStackTrace(), type, startTime, endTime);
         }
     }
 
