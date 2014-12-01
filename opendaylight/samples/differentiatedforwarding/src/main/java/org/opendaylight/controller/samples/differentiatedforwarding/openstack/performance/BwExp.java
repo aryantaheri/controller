@@ -10,6 +10,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.opendaylight.controller.sal.utils.ServiceHelper;
+import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
+import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
+import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
+import org.opendaylight.controller.samples.differentiatedforwarding.TunnelEndPoint;
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.NuttcpManager;
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.OpenStackUtil;
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.ReachabilityManager;
@@ -75,8 +80,32 @@ public class BwExp implements Callable<BwExpReport>{
 
 
     private void programNetwork() {
-        // TODO Auto-generated method stub
+        log.info("programNetwork");
+        ITunnelObserver tunnelObserver = (ITunnelObserver) ServiceHelper.getGlobalInstance(ITunnelObserver.class, this);
+        if(tunnelObserver == null){
+            log.error("programNetwork - programNetwork: TenantTunnelObserver is not available");
+            return;
+        }
+        IForwarding forwarding = (IForwarding) ServiceHelper.getGlobalInstance(IForwarding.class, this);
+        if(forwarding == null){
+            log.error("programNetwork: IForwarding is not available");
+            return;
+        }
+        tunnelObserver.loadTunnelEndPoints(network.getProviderSegID());
+        Set<TunnelEndPoint> teps = tunnelObserver.getTunnelEndPoints().get(network.getProviderSegID());
 
+        List<Tunnel> tunnels = new ArrayList<>();
+        try {
+            tunnels = Tunnel.createTunnels(teps);
+        } catch (Exception e1) {
+            log.error("programNetwork: Can't create Tunnels from TEPs: {}" + teps);
+            log.error("programNetwork: Exception", e1);
+        }
+
+        for (Tunnel tunnel : tunnels) {
+            log.info("programNetwork: Tunnel {}, classValue {}", tunnel, classValue);
+            forwarding.programTunnelForwarding(tunnel, classValue, true);
+        }
     }
 
     private boolean isReady(){
