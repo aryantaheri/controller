@@ -1,13 +1,20 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance;
 
-import org.opendaylight.controller.samples.differentiatedforwarding.openstack.OpenStackUtil;
-import org.openstack4j.model.network.Network;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.opendaylight.controller.samples.differentiatedforwarding.openstack.ReportManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Exp {
+
+    private static Logger log = LoggerFactory.getLogger(Exp.class);
 
     public static final boolean DELETE_INSTANCES = true;
     public static final boolean DELETE_NETWORKS = true;
 
+    // This is more like a wrong name. It should be ClassNetwork concurrency. It runs the networks concurrently with the given classes.
     public static final boolean RUN_CLASSES_CONCURRENTLY = true;
     public static final boolean RUN_INSTANCES_CONCURRENTLY = true;
 
@@ -27,7 +34,10 @@ public class Exp {
     boolean runClassExpConcurrently = false;
     boolean runInstanceExpConcurrently = false;
 
+    String expDir = "";
+
     public Exp(int[] classRange, int minNetworks, int maxNetworks, int minInstances, int maxInstances, boolean runClassExpConcurrently, boolean runInstanceExpConcurrently) {
+
         this.minInstances = minInstances;
         this.maxInstances = maxInstances;
         this.minNetworks = minNetworks;
@@ -38,27 +48,42 @@ public class Exp {
 
         this.runClassExpConcurrently = runClassExpConcurrently;
         this.runInstanceExpConcurrently = runInstanceExpConcurrently;
+        this.expDir = ReportManager.createExpDir("/tmp");
     }
 
     public void exec() {
+        List<String> errors = new ArrayList<>();
         for (int netNum = minNetworks; netNum <= maxNetworks; netNum = netNum * 2) {
-            for (int insNum = Math.max(netNum, minInstances); insNum <= maxInstances; insNum = insNum * 2) {
-                SubExp subExp = new SubExp(classRange, netNum, insNum, runClassExpConcurrently, runInstanceExpConcurrently);
-                subExp.exec();
+            // Each network requires at least two instances to run an exp.
+            for (int insNum = Math.max(netNum * 2, minInstances); insNum <= maxInstances; insNum = insNum * 2) {
+
+                SubExp subExp = null;
+                try {
+                    subExp = new SubExp(classRange, netNum, insNum, runClassExpConcurrently, runInstanceExpConcurrently, expDir);
+                    subExp.exec();
+                    log.info("SubExp {} is executed completely. Dir {}", subExp.getSubExpName(), expDir);
+                    log.info("Sleeping for {}ms before next SubExp.", (1000*30*insNum));
+                    Thread.sleep(1000*30*insNum);
+                } catch (Exception e) {
+                    log.error("exec(): Skipping to the next SubExp", e);
+                    errors.add("Error at " + subExp.getSubExpName() + ": " + e.getMessage());
+                }
                 System.out.println("----------------");
             }
         }
-            // create network
-            // create instances
-            // program network
-            // run subexp
-            // write results
-            // delete instances
-            // delete network
+
+        for (String string : errors) {
+            log.error(string);
+        }
     }
 
     public static void main(String[] args) {
-        int[] classRange = {1};
-        new Exp( classRange, 1, 8, 1, 32, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
+        // NOTE: Keep the size of network and class range identical to make the plots meaningful.
+
+        int[] classRange = {1,4,10};
+//        new Exp( classRange, 1, 8, 1, 32, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
+//        new Exp( classRange, 1, 8, 64, 128, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
+//        new Exp( classRange, 1, 1, 32, 32, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
+        new Exp( classRange, 3, 3, 1, 64, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
     }
 }
