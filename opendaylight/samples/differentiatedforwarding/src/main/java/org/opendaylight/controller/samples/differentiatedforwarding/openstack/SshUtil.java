@@ -1,26 +1,23 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.openstack;
 
 import java.io.IOException;
-import java.security.Security;
 import java.util.concurrent.TimeUnit;
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.opendaylight.controller.samples.differentiatedforwarding.openstack.ssh.CommandOutPut;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.schmizz.sshj.Config;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.common.IOUtils;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.Session.Command;
+
+import org.opendaylight.controller.samples.differentiatedforwarding.openstack.ssh.CommandOutPut;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SshUtil {
 
     private static Logger log = LoggerFactory.getLogger(SshUtil.class);
     // Remote intermediate devstack testing:> ssh aryan@haisen10 'ssh fedora@controller "sudo ip netns exec $NS ssh -i $KEY $VM_IP $CMD"'
     // Remote controller openstack         :> ssh fedora@controller "sudo ip netns exec $NS ssh -i $KEY $VM_IP $CMD"
-    private static String CONTROLLER_HOST = "152.94.0.185"; // "192.168.10.250";
+    private static String CONTROLLER_HOST = "nuc2"; // "192.168.10.250";
     private static String CONTROLLER_USER = "root"; // "fedora";
     private static String CONTROLLER_KEY = "/home/aryan/.ssh/id_rsa_simple";
 
