@@ -1,5 +1,6 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance;
 
+import java.io.Serializable;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -7,7 +8,6 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.commons.lang.builder.ToStringStyle;
@@ -15,9 +15,10 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.openstack4j.model.compute.Server;
 import org.openstack4j.model.network.Network;
 
-import com.google.common.math.DoubleMath;
 
-public class BwExpReport {
+public class BwExpReport implements Serializable{
+
+    private static final long serialVersionUID = 1L;
 
     private int classValue;
     private int networkIndex;
@@ -120,12 +121,145 @@ public class BwExpReport {
     }
 
     public String getSummary() {
-        // TODO Auto-generated method stub
         return ToStringBuilder.reflectionToString(this, new BwExpReportToStringStyle(false));
     }
 
     public String getDetailedReport() {
         return ToStringBuilder.reflectionToString(this, new BwExpReportToStringStyle(true));
+    }
+
+
+
+    public int getClassValue() {
+        return classValue;
+    }
+
+    public int getNetworkIndex() {
+        return networkIndex;
+    }
+
+    public int getInstanceNum() {
+        return instanceNum;
+    }
+
+    public int getRetries() {
+        return retries;
+    }
+
+    public int getMaxRetries() {
+        return maxRetries;
+    }
+
+    public int getAcceptableFailurePercentage() {
+        return acceptableFailurePercentage;
+    }
+
+    public Date getStartTime() {
+        return startTime;
+    }
+
+    public Date getEndTime() {
+        return endTime;
+    }
+
+    public boolean isDeleteNetwork() {
+        return deleteNetwork;
+    }
+
+    public boolean isDeleteInstances() {
+        return deleteInstances;
+    }
+
+    public boolean isNetworkMayExist() {
+        return networkMayExist;
+    }
+
+    public boolean isRunClassExpConcurrently() {
+        return runClassExpConcurrently;
+    }
+
+    public boolean isRunInstanceExpConcurrently() {
+        return runInstanceExpConcurrently;
+    }
+
+    public Network getNetwork() {
+        return network;
+    }
+
+    public List<? extends Server> getInstances() {
+        return instances;
+    }
+
+    public Set<Server> getReachableInstances() {
+        return reachableInstances;
+    }
+
+    public Set<Server> getNotReachableinstances() {
+        return notReachableinstances;
+    }
+
+    public ArrayList<BwReport> getBwReports() {
+        return nuttcpReports;
+    }
+
+    public DescriptiveStatistics getRateStats() {
+        return rateStats;
+    }
+
+    public DescriptiveStatistics getRateStatsDiffHyper() {
+        return rateStatsDiffHyper;
+    }
+
+    public DescriptiveStatistics getRateStatsSameHyper() {
+        return rateStatsSameHyper;
+    }
+
+    public DescriptiveStatistics getCpuRxStats() {
+        return cpuRxStats;
+    }
+
+    public DescriptiveStatistics getCpuRxStatsDiffHyper() {
+        return cpuRxStatsDiffHyper;
+    }
+
+    public DescriptiveStatistics getCpuRxStatsSameHyper() {
+        return cpuRxStatsSameHyper;
+    }
+
+    public DescriptiveStatistics getCpuTxStats() {
+        return cpuTxStats;
+    }
+
+    public DescriptiveStatistics getCpuTxStatsDiffHyper() {
+        return cpuTxStatsDiffHyper;
+    }
+
+    public DescriptiveStatistics getCpuTxStatsSameHyper() {
+        return cpuTxStatsSameHyper;
+    }
+
+    public DescriptiveStatistics getRttStats() {
+        return rttStats;
+    }
+
+    public DescriptiveStatistics getRttStatsDiffHyper() {
+        return rttStatsDiffHyper;
+    }
+
+    public DescriptiveStatistics getRttStatsSameHyper() {
+        return rttStatsSameHyper;
+    }
+
+    public DescriptiveStatistics getRetransStats() {
+        return retransStats;
+    }
+
+    public DescriptiveStatistics getRetransStatsDiffHyper() {
+        return retransStatsDiffHyper;
+    }
+
+    public DescriptiveStatistics getRetransStatsSameHyper() {
+        return retransStatsSameHyper;
     }
 
     @Override
