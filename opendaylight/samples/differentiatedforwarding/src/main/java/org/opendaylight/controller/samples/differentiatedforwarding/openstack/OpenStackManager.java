@@ -44,12 +44,14 @@ public class OpenStackManager {
         List<? extends Server> servers = os.compute().servers().list();
         for (Server server : servers) {
             os.compute().servers().delete(server.getId());
+            log.debug("deleteAllInstances instance {}", server.getName());
         }
     }
 
     public static void deleteInstances(OSClient os, List<? extends Server> servers){
         for (Server server : servers) {
             os.compute().servers().delete(server.getId());
+            log.debug("deleteInstances instance {}", server.getName());
         }
     }
 
