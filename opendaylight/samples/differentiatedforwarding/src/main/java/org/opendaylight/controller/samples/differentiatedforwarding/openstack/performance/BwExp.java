@@ -188,8 +188,8 @@ public class BwExp implements Callable<BwExpReport>{
                                             network, instances, reachableInstances, notReachableinstances,
                                             nuttcpReports);
         log.info("Call: {}", report.getSummary());
-        log.info("Call: {}", report.getDetailedReport());
-        cleanUp();
+//        log.info("Call: {}", report.getDetailedReport());
+//        cleanUp();
 
         return report;
     }
@@ -237,11 +237,15 @@ public class BwExp implements Callable<BwExpReport>{
         return bwReports;
     }
 
-    private void cleanUp() {
-        if (deleteInstances)
-            OpenStackUtil.deleteInstances(instances);
-        if (deleteInstances && deleteNetwork)
-            OpenStackUtil.deleteNetworkById(network.getId());
+    public void cleanUp() {
+        try {
+            if (deleteInstances)
+                OpenStackUtil.deleteInstances(instances);
+            if (deleteInstances && deleteNetwork)
+                OpenStackUtil.deleteNetworkById(network.getId());
+        } catch (Exception e) {
+            log.error("cleanUp: ", e);
+        }
     }
 
 }
