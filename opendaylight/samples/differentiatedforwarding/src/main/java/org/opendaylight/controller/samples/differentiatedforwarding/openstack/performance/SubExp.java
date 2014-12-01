@@ -3,7 +3,6 @@ package org.opendaylight.controller.samples.differentiatedforwarding.openstack.p
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -22,24 +21,27 @@ public class SubExp {
     boolean runClassExpConcurrently = false;
     boolean runInstanceExpConcurrently = false;
 
-    String reportFilePrefix = "";
+    String subExpName = "";
+    String expDir = "";
 
-    public SubExp(int[] classRange, int netNum, int insNum, boolean runClassExpConcurrently, boolean runInstanceExpConcurrently) {
+    public SubExp(int[] classRange, int netNum, int insNum, boolean runClassExpConcurrently, boolean runInstanceExpConcurrently, String expDir) {
         this.netNum = netNum;
         this.insNum = insNum;
         this.classRange = classRange;
         this.runClassExpConcurrently = runClassExpConcurrently;
         this.runInstanceExpConcurrently = runInstanceExpConcurrently;
+        this.expDir = expDir;
 
-        this.reportFilePrefix = "/tmp/"+"classes"+Arrays.toString(classRange)+"[con="+runClassExpConcurrently+"]"
-                                        +"-nets"+netNum+"-instances"+insNum+"[con="+runInstanceExpConcurrently+"]";
+        this.subExpName = "classes"+Arrays.toString(classRange)+"[con="+runClassExpConcurrently+"]"
+                          +"-nets"+netNum+"-instances"+insNum+"[con="+runInstanceExpConcurrently+"]";
+        log.info("executing SubExp {}", subExpName);
         System.out.println(Arrays.toString(classRange)+":"+netNum+":"+insNum);
     }
 
     // class -> network -> instance
     public void exec() {
         List<BwExpReport> bwExpReports;
-        String outputFile = ReportManager.getReportName(reportFilePrefix);
+        String outputFile = ReportManager.getReportName(expDir + "/" + subExpName);
 
         if (runClassExpConcurrently) {
             bwExpReports = execConcurrently();
@@ -47,7 +49,7 @@ public class SubExp {
             bwExpReports = execSequential();
         }
         ReportManager.writeReport(bwExpReports, outputFile, true);
-
+        ReportManager.writeReportObjects(bwExpReports, outputFile+".obj");
     }
 
     private List<BwExpReport> execConcurrently() {
@@ -95,6 +97,11 @@ public class SubExp {
             }
         }
 
+        // Clean up
+        for (BwExp bwExp : bwExps) {
+            bwExp.cleanUp();
+        }
+
         executorService.shutdown();
         return bwExpReports;
     }
@@ -113,17 +120,25 @@ public class SubExp {
             for (int net = 1; net <= classNetNum; net++) {
                 int netInsNum = insNum / netNum;
 
+                BwExp bwExp = null;
                 try {
                     System.out.println("class:" + classRange[classId - 1] + " network:" + net + " netInsNum:" + netInsNum);
-                    BwExpReport bwExpReport = new BwExp(classId, net, netInsNum, runClassExpConcurrently, runInstanceExpConcurrently).call();
+                    bwExp = new BwExp(classId, net, netInsNum, runClassExpConcurrently, runInstanceExpConcurrently);
+                    BwExpReport bwExpReport = bwExp.call();
                     bwExpReports.add(bwExpReport);
                 } catch (Exception e) {
                     log.error("exec", e);
+                } finally {
+                    if (bwExp != null) bwExp.cleanUp();
                 }
 
             }
 
         }
         return bwExpReports;
+    }
+
+    public String getSubExpName() {
+        return subExpName;
     }
 }
