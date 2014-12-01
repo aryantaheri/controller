@@ -9,13 +9,14 @@ public class CommandOutPut {
     private String exitErrorMessage;
 
 
+//    name = ((city == null) || (city.getName() == null) ? "N/A" : city.getName());
 
     public CommandOutPut(String cmd, String output, String error, int exitStatus, String exitErrorMessage) {
         this.cmd = cmd;
-        this.output = output;
-        this.error = error;
+        this.output = ((output == null) ? output : output.trim());
+        this.error = ((error == null) ? error : error.trim());
         this.exitStatus = exitStatus;
-        this.exitErrorMessage = exitErrorMessage;
+        this.exitErrorMessage = ((exitErrorMessage == null) ? exitErrorMessage : exitErrorMessage.trim());
     }
 
     public String getOutput() {
