@@ -1,6 +1,5 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.openstack;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,10 +19,6 @@ import org.openstack4j.model.network.Subnet;
 import org.openstack4j.openstack.OSFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.impl.Log4jLoggerAdapter;
-
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.core.subst.Token.Type;
 
 /**
 ssh -L 5000:192.168.10.250:5000 \
@@ -55,7 +50,7 @@ public class OpenStackUtil {
         vmKeyPair.put(defaultKeyPair, "/tmp/cloud-keypair.pem");
 
         os = OSFactory.builder()
-                .endpoint("http://152.94.0.185:5000/v2.0")
+                .endpoint("http://nuc2:5000/v2.0")
                 .credentials("admin","adminpass")
                 .tenantName("admin")
                 .authenticate();
@@ -69,11 +64,11 @@ public class OpenStackUtil {
 //                .credentials("admin","admin")
 //                .tenantName(tenantName)
 //                .authenticate();
-        OSClient os2 = OSFactory.builder()
-                .endpoint("http://152.94.0.185:5000/v2.0")
-                .credentials("admin","adminpass")
-                .tenantName("admin")
-                .authenticate();
+//        OSClient os2 = OSFactory.builder()
+//                .endpoint("http://nuc2:5000/v2.0")
+//                .credentials("admin","adminpass")
+//                .tenantName("admin")
+//                .authenticate();
 //
 //        List<? extends Tenant> tenants = os.identity().tenants().list();
 //        System.out.println(tenants);
@@ -178,20 +173,22 @@ public class OpenStackUtil {
     }
 
     public static List<Server> createInstances(String namePrefix, String networkName, int number){
-        Image image = OpenStackManager.getImage(os, defaultImage);
-        Flavor flavor = OpenStackManager.getFlavor(os, defaultFlavor);
-        Network network = OpenStackManager.getNetwork(os, networkName);
-        Keypair keypair = os.compute().keypairs().get(defaultKeyPair);
+        OSClient osClient = OSFactory.clientFromAccess(access);
+        Image image = OpenStackManager.getImage(osClient, defaultImage);
+        Flavor flavor = OpenStackManager.getFlavor(osClient, defaultFlavor);
+        Network network = OpenStackManager.getNetwork(osClient, networkName);
+        Keypair keypair = osClient.compute().keypairs().get(defaultKeyPair);
         if (network == null || image == null || flavor == null || keypair == null){
             log.error("createInstances: missing params image {} flavor {} network {} keypair {}", image, flavor, network, keypair);
             return null;
         }
-        List<Server> instances = OpenStackManager.createInstances(os, namePrefix, image.getId(), flavor.getId(), network.getId(), keypair.getName(), number);
+        List<Server> instances = OpenStackManager.createInstances(osClient, namePrefix, image.getId(), flavor.getId(), network.getId(), keypair.getName(), number);
         return instances;
     }
 
     public static void deleteAllInstances() {
-        OpenStackManager.deleteAllInstances(os);
+        OSClient osClient = OSFactory.clientFromAccess(access);
+        OpenStackManager.deleteAllInstances(osClient);
     }
 
     public static void deleteInstances(List<? extends Server> instances) {
@@ -200,22 +197,25 @@ public class OpenStackUtil {
     }
 
     public static Network createNetwork(String networkName, String cidr, boolean mayExist){
+        OSClient osClient = OSFactory.clientFromAccess(access);
         if (mayExist){
-            Network network = OpenStackManager.getNetwork(os, networkName);
+            Network network = OpenStackManager.getNetwork(osClient, networkName);
             if (network != null){
                 log.warn("createNetwork: Network {} exists", network);
                 return network;
             }
         }
-        return OpenStackManager.createNetwork(os, defaultTenantName, networkName, cidr);
+        return OpenStackManager.createNetwork(osClient, defaultTenantName, networkName, cidr);
     }
 
     public static void deleteNetworkById(String networkUuid){
-        OpenStackManager.deleteNetworkById(os, networkUuid);
+        OSClient osClient = OSFactory.clientFromAccess(access);
+        OpenStackManager.deleteNetworkById(osClient, networkUuid);
     }
 
     public static void deleteNetwork(String networkName){
-        OpenStackManager.deleteNetwork(os, networkName);
+        OSClient osClient = OSFactory.clientFromAccess(access);
+        OpenStackManager.deleteNetwork(osClient, networkName);
     }
 
 //    private void areUp(List<? extends Server> servers) {
