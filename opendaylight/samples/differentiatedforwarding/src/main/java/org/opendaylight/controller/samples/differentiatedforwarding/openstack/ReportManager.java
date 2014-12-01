@@ -11,14 +11,10 @@ import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.BwExpReport;
-import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.BwReport;
-import org.openstack4j.model.compute.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
