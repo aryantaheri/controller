@@ -1,5 +1,6 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance;
 
+import java.io.Serializable;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -7,7 +8,9 @@ import java.util.Date;
 import org.openstack4j.model.compute.Server;
 import org.openstack4j.model.network.Network;
 
-public class BwReport {
+public class BwReport implements Serializable{
+
+    private static final long serialVersionUID = 1L;
 
     Server transmitter;
     Server receiver;
