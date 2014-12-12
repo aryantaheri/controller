@@ -27,12 +27,13 @@ public class BwReport implements Serializable{
     String receiverIp;
     String transmitterHost;
     String receiverHost;
-    float rate;
-    float rtt;
-    int retrans;
-    int transmitterCpu;
-    int receiverCpu;
+    Float rate;
+    Float rtt;
+    Float transmitterCpu;
+    Float receiverCpu;
+    Float retrans;
 
+    boolean error = false;
 
     RateUnit rateUnit;
     enum RateUnit {
@@ -66,6 +67,10 @@ public class BwReport implements Serializable{
         transmitterHost = transmitter.getHypervisorHostname();
         receiverHost = receiver.getHypervisorHostname();
 
+        if (rawError != null && !rawError.trim().equalsIgnoreCase("")){
+            error = true;
+        }
+
         switch (type) {
         case TCP:
             setTcpFields();
@@ -86,8 +91,8 @@ public class BwReport implements Serializable{
         for (String keyValue : keyValues) {
             String[] kv = keyValue.split("=");
             if (kv.length != 2) continue;
-            System.out.println(kv[0]);
-            System.out.println(kv[1]);
+//            System.out.println(kv[0]);
+//            System.out.println(kv[1]);
             if (kv[0].startsWith("rate_")) {
                 float rate = Float.parseFloat(kv[1]);
                 RateUnit rateUnit = RateUnit.getUnit(kv[0].split("_+")[1]);
@@ -113,11 +118,11 @@ public class BwReport implements Serializable{
                 rate = Float.parseFloat(kv[1]);
                 rateUnit = RateUnit.getUnit(kv[0].split("_")[1]);
             } else if (kv[0].equalsIgnoreCase("tx_cpu")){
-                transmitterCpu = Integer.parseInt(kv[1]);
+                transmitterCpu = Float.parseFloat(kv[1]);
             } else if (kv[0].equalsIgnoreCase("rx_cpu")){
-                receiverCpu = Integer.parseInt(kv[1]);
+                receiverCpu = Float.parseFloat(kv[1]);
             } else if (kv[0].equalsIgnoreCase("retrans")){
-                retrans = Integer.parseInt(kv[1]);
+                retrans = Float.parseFloat(kv[1]);
             } else if (kv[0].equalsIgnoreCase("rtt_ms")){
                 rtt = Float.parseFloat(kv[1]);
             }
@@ -176,27 +181,27 @@ public class BwReport implements Serializable{
     }
 
 
-    public float getRate() {
+    public Float getRate() {
         return rate;
     }
 
 
-    public float getRtt() {
+    public Float getRtt() {
         return rtt;
     }
 
 
-    public int getRetrans() {
+    public Float getRetrans() {
         return retrans;
     }
 
 
-    public int getTransmitterCpu() {
+    public Float getTransmitterCpu() {
         return transmitterCpu;
     }
 
 
-    public int getReceiverCpu() {
+    public Float getReceiverCpu() {
         return receiverCpu;
     }
 
@@ -210,6 +215,9 @@ public class BwReport implements Serializable{
         return type;
     }
 
+    public boolean hasError() {
+        return error;
+    }
 
     @Override
     public String toString() {
@@ -235,11 +243,10 @@ public class BwReport implements Serializable{
                     + " endTime=" + dateFormat.format(end)
                     + " duration=" + (endTime - startTime);
 
-            if (rawError != null && !rawError.trim().equalsIgnoreCase("")){
+            if (error){
                 toString = toString
                         + " rawOutput=" + rawOutput
                         + " rawError=" + rawError;
-
             }
 
             break;

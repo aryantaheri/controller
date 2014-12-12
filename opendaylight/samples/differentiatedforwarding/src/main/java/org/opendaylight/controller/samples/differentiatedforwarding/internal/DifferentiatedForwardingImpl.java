@@ -1243,6 +1243,12 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             for (String brUuid : bridges.keySet()) {
                 Bridge bridge = ovsdbConfigService.getTypedRow(ovsNode, Bridge.class, bridges.get(brUuid));
 
+                if (bridge.getDatapathIdColumn() == null ||
+                        bridge.getDatapathIdColumn().getData() == null ||
+                        bridge.getDatapathIdColumn().getData().size() < 1 ||
+                        ofNode.getId().getValue() == null || ofNode.getId().getValue().split(":").length < 1){
+                    continue;
+                }
 //                long bridgeDpid = sEncode.stringToLong((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
                 BigInteger bridgeDpid = OpenFlowUtils.getDpId((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
 //                long ofNodeDpid = Long.parseLong(ofNode.getId().getValue().split(":")[1]);
@@ -1295,6 +1301,12 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             for (String brUuid : bridges.keySet()) {
                 Bridge bridge = ovsdbConfigService.getTypedRow(ovsNode, Bridge.class, bridges.get(brUuid));
 
+                if (bridge.getDatapathIdColumn() == null ||
+                        bridge.getDatapathIdColumn().getData() == null ||
+                        bridge.getDatapathIdColumn().getData().size() < 1 ||
+                        ofNode.getId().getValue() == null || ofNode.getId().getValue().split(":").length < 1){
+                    continue;
+                }
                 BigInteger bridgeDpid = OpenFlowUtils.getDpId((String)bridge.getDatapathIdColumn().getData().toArray()[0]);
                 BigInteger ofNodeDpid = new BigInteger(ofNode.getId().getValue().split(":")[1]);
 

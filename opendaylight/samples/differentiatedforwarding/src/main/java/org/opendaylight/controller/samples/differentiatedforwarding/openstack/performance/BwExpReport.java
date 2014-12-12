@@ -9,8 +9,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.commons.lang.builder.ToStringBuilder;
-import org.apache.commons.lang.builder.ToStringStyle;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.openstack4j.model.compute.Server;
 import org.openstack4j.model.network.Network;
@@ -42,6 +42,9 @@ public class BwExpReport implements Serializable{
     private Set<Server> notReachableinstances;
 
     ArrayList<BwReport> nuttcpReports;
+
+    private int missingValueCount = 0;
+    private int reportErrorCount = 0;
 
 
     public BwExpReport(int classValue, int networkIndex, int instanceNum,
@@ -97,26 +100,47 @@ public class BwExpReport implements Serializable{
 
     private void prepareStats() {
         for (BwReport report : nuttcpReports) {
-            rateStats.addValue(report.getRate());
-            cpuRxStats.addValue(report.getReceiverCpu());
-            cpuTxStats.addValue(report.getTransmitterCpu());
-            rttStats.addValue(report.getRtt());
-            retransStats.addValue(report.getRetrans());
+            if (report.hasError()){
+                reportErrorCount++;
+                System.err.println("BwReport has errors: " + report);
+            }
+
+            addValue(rateStats, report.getRate(), true);
+            addValue(cpuRxStats, report.getReceiverCpu(), true);
+            addValue(cpuTxStats, report.getTransmitterCpu(), true);
+            addValue(rttStats, report.getRtt(), true);
+            addValue(retransStats, report.getRetrans(), true);
 
             if (report.getReceiverHost().equalsIgnoreCase(report.getTransmitterHost())){
-                rateStatsSameHyper.addValue(report.getRate());
-                cpuRxStatsSameHyper.addValue(report.getReceiverCpu());
-                cpuTxStatsSameHyper.addValue(report.getTransmitterCpu());
-                rttStatsSameHyper.addValue(report.getRtt());
-                retransStatsSameHyper.addValue(report.getRetrans());
+
+                addValue(rateStatsSameHyper, report.getRate());
+                addValue(cpuRxStatsSameHyper, report.getReceiverCpu());
+                addValue(cpuTxStatsSameHyper, report.getTransmitterCpu());
+                addValue(rttStatsSameHyper, report.getRtt());
+                addValue(retransStatsSameHyper, report.getRetrans());
 
             } else {
-                rateStatsDiffHyper.addValue(report.getRate());
-                cpuRxStatsDiffHyper.addValue(report.getReceiverCpu());
-                cpuTxStatsDiffHyper.addValue(report.getTransmitterCpu());
-                rttStatsDiffHyper.addValue(report.getRtt());
-                retransStatsDiffHyper.addValue(report.getRetrans());
+
+                addValue(rateStatsDiffHyper, report.getRate());
+                addValue(cpuRxStatsDiffHyper, report.getReceiverCpu());
+                addValue(cpuTxStatsDiffHyper, report.getTransmitterCpu());
+                addValue(rttStatsDiffHyper, report.getRtt());
+                addValue(retransStatsDiffHyper, report.getRetrans());
             }
+        }
+    }
+
+    private void addValue(DescriptiveStatistics stats, Float value){
+        addValue(stats, value, false);
+    }
+
+    private void addValue(DescriptiveStatistics stats, Float value, boolean countMissing){
+        if (value == null) {
+            // Report somewhere?
+            if (countMissing) missingValueCount++;
+            return;
+        } else {
+            stats.addValue(value);
         }
     }
 
@@ -200,6 +224,14 @@ public class BwExpReport implements Serializable{
 
     public ArrayList<BwReport> getBwReports() {
         return nuttcpReports;
+    }
+
+    public int getMissingValueCount(){
+        return missingValueCount;
+    }
+
+    public int getReportErrorCount(){
+        return reportErrorCount;
     }
 
     public DescriptiveStatistics getRateStats() {

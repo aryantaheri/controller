@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.ReportManager;
+import org.opendaylight.controller.samples.differentiatedforwarding.openstack.ssh.OvsManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,8 +16,8 @@ public class Exp {
     public static final boolean DELETE_NETWORKS = true;
 
     // This is more like a wrong name. It should be ClassNetwork concurrency. It runs the networks concurrently with the given classes.
-    public static final boolean RUN_CLASSES_CONCURRENTLY = true;
-    public static final boolean RUN_INSTANCES_CONCURRENTLY = true;
+    public static final boolean RUN_CLASSES_CONCURRENTLY = false;
+    public static final boolean RUN_INSTANCES_CONCURRENTLY = false;
 
     int[] instanceRange;
     int[] networkRange;
@@ -48,7 +49,7 @@ public class Exp {
 
         this.runClassExpConcurrently = runClassExpConcurrently;
         this.runInstanceExpConcurrently = runInstanceExpConcurrently;
-        this.expDir = ReportManager.createExpDir("/tmp");
+        this.expDir = ReportManager.createExpDir("/home/aryan/data");
     }
 
     public void exec() {
@@ -62,13 +63,19 @@ public class Exp {
                     subExp = new SubExp(classRange, netNum, insNum, runClassExpConcurrently, runInstanceExpConcurrently, expDir);
                     subExp.exec();
                     log.info("SubExp {} is executed completely. Dir {}", subExp.getSubExpName(), expDir);
-                    log.info("Sleeping for {}ms before next SubExp.", (1000*30*insNum));
-                    Thread.sleep(1000*30*insNum);
+                    Thread.sleep(1000*insNum);
+                    boolean readyForNext = OvsManager.fixNucs();
+                    if (!readyForNext){
+                        log.error("OVS is not ready for the next experiment.");
+                        return;
+                    }
+                    log.info("Sleeping for {}ms before next SubExp.", (1000*10*insNum));
+                    Thread.sleep(1000*10*insNum);
                 } catch (Exception e) {
                     log.error("exec(): Skipping to the next SubExp", e);
                     errors.add("Error at " + subExp.getSubExpName() + ": " + e.getMessage());
                 }
-                System.out.println("----------------");
+                log.info("Going for next SubExp----------------------------");
             }
         }
 
@@ -77,13 +84,28 @@ public class Exp {
         }
     }
 
+    public static Exp getSimpleExp(int[] classRange) {
+        int computeSize = 3;
+        int networkSize = classRange.length;
+        int instanceSize = computeSize * networkSize;
+        Exp exp = new Exp( classRange, networkSize, networkSize, instanceSize, instanceSize, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY);
+        return exp;
+    }
+
     public static void main(String[] args) {
         // NOTE: Keep the size of network and class range identical to make the plots meaningful.
+//        int[] classRange = {1};
+//        new Exp( classRange, 1, 1, 2, 2, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
 
-        int[] classRange = {1,4,10};
+        int[] classRange = {1};
+        getSimpleExp(classRange).exec();
+
 //        new Exp( classRange, 1, 8, 1, 32, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
 //        new Exp( classRange, 1, 8, 64, 128, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
-//        new Exp( classRange, 1, 1, 32, 32, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
-        new Exp( classRange, 3, 3, 1, 64, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
+//        new Exp( classRange, 1, 1, 1, 2, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
+//        new Exp( classRange, 3, 3, 24, 24, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
+//        new Exp( classRange, 3, 3, 96, 256, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
+
+
     }
 }

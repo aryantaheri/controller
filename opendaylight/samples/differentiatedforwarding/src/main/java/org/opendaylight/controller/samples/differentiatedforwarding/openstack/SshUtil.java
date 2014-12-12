@@ -144,6 +144,56 @@ public class SshUtil {
         }
     }
 
+    public static CommandOutPut execCmd(String hostName, String hostCmd) throws Exception {
+        String host = hostName;
+        String user = null;
+        String key = null;
+        String cmdString = null;
+
+        if (useIntermediate) {
+            host = INTERMEDIATE_HOST;
+            user = INTERMEDIATE_USER;
+            key = INTERMEDIATE_KEY;
+
+            cmdString = "ssh " + " -i " + CONTROLLER_KEY + " " + CONTROLLER_USER + "@" + host + " " + "\"" + hostCmd + "\"";
+        } else {
+            user = CONTROLLER_USER;
+            key = CONTROLLER_KEY;
+
+            cmdString = hostCmd;
+        }
+
+        log.debug("cmdString: " + cmdString);
+        final SSHClient ssh = new SSHClient();
+        ssh.loadKnownHosts();
+        ssh.connect(host);
+        try {
+            ssh.authPublickey(user, key);
+            final Session session = ssh.startSession();
+            try {
+                final Command cmd = session.exec(cmdString);
+                String output = IOUtils.readFully(cmd.getInputStream()).toString();
+                String error = IOUtils.readFully(cmd.getErrorStream()).toString();
+                log.info("execCmd hostName {} hostCmd {} cmdOutput {}, cmdError {}", host, hostCmd, output, error);
+
+                cmd.join(5, TimeUnit.SECONDS);
+                log.info("execCmd Exit Status: {}", cmd.getExitStatus());
+
+                if (cmd.getExitStatus() != 0)
+                    log.error("execCmd cmd: {} Exit Status: {} Error msg: {}", cmdString, cmd.getExitStatus(), cmd.getExitErrorMessage());
+
+                CommandOutPut cmdOutPut = new CommandOutPut(cmdString, output, error, cmd.getExitStatus(), cmd.getExitErrorMessage());
+                return cmdOutPut;
+            } finally {
+                session.close();
+            }
+        } finally {
+            ssh.disconnect();
+            ssh.close();
+        }
+
+    }
+
     public static void execVmCmdAsync(String vmNameSpace, String vmKey, String vmUser, String vmIp, String vmCmd, String controllerOutPutFile) throws IOException{
 
     }

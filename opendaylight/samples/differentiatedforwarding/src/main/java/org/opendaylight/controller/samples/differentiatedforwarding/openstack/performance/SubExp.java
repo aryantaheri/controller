@@ -35,7 +35,6 @@ public class SubExp {
         this.subExpName = "classes"+Arrays.toString(classRange)+"[con="+runClassExpConcurrently+"]"
                           +"-nets"+netNum+"-instances"+insNum+"[con="+runInstanceExpConcurrently+"]";
         log.info("executing SubExp {}", subExpName);
-        System.out.println(Arrays.toString(classRange)+":"+netNum+":"+insNum);
     }
 
     // class -> network -> instance
@@ -73,9 +72,10 @@ public class SubExp {
             for (int net = 1; net <= classNetNum; net++) {
                 int netInsNum = insNum / netNum;
 
-                System.out.println("class:" + classRange[classId - 1] + " network:" + net + " netInsNum:" + netInsNum);
-                BwExp bwExp = new BwExp(classId, net, netInsNum, runClassExpConcurrently, runInstanceExpConcurrently);
+                log.debug("class:" + classRange[classId - 1] + " network:" + net + " netInsNum:" + netInsNum);
+                BwExp bwExp = new BwExp(classRange[classId - 1], net, netInsNum, runClassExpConcurrently, runInstanceExpConcurrently);
                 bwExps.add(bwExp);
+                log.info("{} added for concurrent exec.", bwExp.getBwExpName());
 
             }
         }
@@ -122,8 +122,9 @@ public class SubExp {
 
                 BwExp bwExp = null;
                 try {
-                    System.out.println("class:" + classRange[classId - 1] + " network:" + net + " netInsNum:" + netInsNum);
-                    bwExp = new BwExp(classId, net, netInsNum, runClassExpConcurrently, runInstanceExpConcurrently);
+                    log.debug("class:" + classRange[classId - 1] + " network:" + net + " netInsNum:" + netInsNum);
+                    bwExp = new BwExp(classRange[classId - 1], net, netInsNum, runClassExpConcurrently, runInstanceExpConcurrently);
+                    log.info("{} created for sequential exec.", bwExp.getBwExpName());
                     BwExpReport bwExpReport = bwExp.call();
                     bwExpReports.add(bwExpReport);
                 } catch (Exception e) {

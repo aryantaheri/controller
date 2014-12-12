@@ -1,7 +1,9 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.openstack;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.openstack4j.api.Builders;
 import org.openstack4j.api.OSClient;
@@ -32,26 +34,43 @@ public class OpenStackManager {
             ServerCreate sc = Builders.server().name(namePrefix + (i+1)).flavor(flavorUuid).image(imageUuid).networks(networks).keypairName(keyPairName).build();
 
             // Boot the Server
-            Server server = osClient.compute().servers().bootAndWaitActive(sc, BOOT_WAIT_TIME);
+//            Server server = osClient.compute().servers().bootAndWaitActive(sc, BOOT_WAIT_TIME);
+            Server server = osClient.compute().servers().boot(sc);
             instances.add(server);
         }
 
         return instances;
     }
 
+    public static Set<Server> reloadInstances(OSClient osClient, Set<? extends Server> instances) {
+        if (instances == null || instances.size() == 0) return new HashSet<Server>();
+        log.trace("reloadInstances: {}", instances);
+        List<? extends Server> allServers = osClient.compute().servers().list(true);
+        Set<Server> reloadedInstances = new HashSet<Server>();
+
+        for (Server server : allServers) {
+            for (Server tobeLoadedInstance : instances) {
+                if (tobeLoadedInstance.getId().equals(server.getId())){
+                    reloadedInstances.add(server);
+                }
+            }
+        }
+        log.trace("reloadedInstances: {}", reloadedInstances);
+        return reloadedInstances;
+    }
 
     public static void deleteAllInstances(OSClient os){
         List<? extends Server> servers = os.compute().servers().list();
         for (Server server : servers) {
             os.compute().servers().delete(server.getId());
-            log.debug("deleteAllInstances instance {}", server.getName());
+            log.info("deleteAllInstances instance {} {}", server.getName(), server.getId());
         }
     }
 
     public static void deleteInstances(OSClient os, List<? extends Server> servers){
         for (Server server : servers) {
             os.compute().servers().delete(server.getId());
-            log.debug("deleteInstances instance {}", server.getName());
+            log.info("deleteInstances instance {} {}", server.getName(), server.getId());
         }
     }
 
@@ -92,6 +111,7 @@ public class OpenStackManager {
             try {
                 Thread.sleep(1000*30*retries);
                 os.networking().network().delete(networkUuid);
+                log.info("deleteNetworkById {}", networkUuid);
                 return;
             } catch (Exception e) {
                 log.warn("deleteNetworkById: network is busy probably {}", e.getMessage());
@@ -103,6 +123,7 @@ public class OpenStackManager {
         Network network = getNetwork(os, networkName);
         if (network != null){
             os.networking().network().delete(network.getId());
+            log.info("deleteNetwork {}", network);
         }
     }
 

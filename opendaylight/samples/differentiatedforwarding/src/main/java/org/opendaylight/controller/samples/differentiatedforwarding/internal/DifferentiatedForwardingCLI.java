@@ -14,6 +14,8 @@ import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
 import org.opendaylight.controller.samples.differentiatedforwarding.TunnelEndPoint;
+import org.opendaylight.controller.samples.differentiatedforwarding.openstack.SshUtil;
+import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.Exp;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.osgi.framework.ServiceRegistration;
 
@@ -30,7 +32,8 @@ public class DifferentiatedForwardingCLI {
     public void start() {
         final Dictionary<String, Object> props = new Hashtable<String, Object>();
         props.put("osgi.command.scope", "odpcontroller");
-        props.put("osgi.command.function", new String[] { "programTunnel", "programTEPs", "programNetwork", "getMdNode", "getExternalInterface", "getTenantLocalInterfaces", "getProgrammedPath", "reportNetwork" });
+        props.put("osgi.command.function", new String[] { "programTunnel", "programTEPs", "programNetwork", "getMdNode", "getExternalInterface", "getTenantLocalInterfaces", "getProgrammedPath", "reportNetwork",
+                "runSimpleExp", "runExp", "execCmd"});
         this.sr = ServiceHelper.registerGlobalServiceWReg(DifferentiatedForwardingCLI.class, this, props);
     }
 
@@ -225,5 +228,46 @@ public class DifferentiatedForwardingCLI {
         List<Long> ofPorts = forwarding.getTenantLocalInterfaces(ofNode, segmentationId);
         System.out.println("Node: "+ ofNode.getId() + "");
         System.out.println("OfPorts: " + ofPorts);
+    }
+
+    public void runSimpleExp(
+            @Descriptor("Container on the context of which the routing service need to be looked up") String container,
+            @Descriptor("ClassRange x,y,z") String classesString) {
+        String[] classes = classesString.split(",");
+        int[] classRange = new int[classes.length];
+        for (int i = 0; i < classes.length; i++) {
+            classRange[i] = Integer.parseInt(classes[i]);
+        }
+
+        Exp exp = Exp.getSimpleExp(classRange);
+        exp.exec();
+    }
+
+    public void runExp(
+            @Descriptor("Container on the context of which the routing service need to be looked up") String container,
+            @Descriptor("ClassRange x,y,z") String classesString,
+            @Descriptor("Min Network") int minNetworks,
+            @Descriptor("Max Network") int maxNetworks,
+            @Descriptor("Min Instances") int minInstances,
+            @Descriptor("Max Instances") int maxInstances) {
+        String[] classes = classesString.split(",");
+        int[] classRange = new int[classes.length];
+        for (int i = 0; i < classes.length; i++) {
+            classRange[i] = Integer.parseInt(classes[i]);
+        }
+
+        Exp exp = new Exp(classRange, minNetworks, maxNetworks, minInstances, maxInstances, Exp.RUN_CLASSES_CONCURRENTLY, Exp.RUN_INSTANCES_CONCURRENTLY);
+        exp.exec();
+    }
+
+    public void execCmd(
+            @Descriptor("HostName") String hostName,
+            @Descriptor("Cmd") String cmd) {
+
+        try {
+            SshUtil.execCmd(hostName, cmd);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

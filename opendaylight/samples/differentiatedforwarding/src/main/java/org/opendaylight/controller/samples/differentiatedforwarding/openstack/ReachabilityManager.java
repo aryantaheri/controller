@@ -23,6 +23,11 @@ public class ReachabilityManager {
 
     public static ReachabilityReport runReachability(Server receiver, Network vmNetwork) {
         String vmNameSpace = getNameSpace(vmNetwork);
+        if (receiver.getAddresses() == null ||
+                receiver.getAddresses().getAddresses(vmNetwork.getName()) == null ||
+                receiver.getAddresses().getAddresses(vmNetwork.getName()).get(0) == null) {
+            return null;
+        }
         String rxAddress = receiver.getAddresses().getAddresses(vmNetwork.getName()).get(0).getAddr();
         String controllerCmd = "sudo /sbin/ip netns exec " + vmNameSpace + " ping -c " + pingCount + " " + rxAddress;
 
@@ -80,7 +85,7 @@ public class ReachabilityManager {
         for (Future<ReachabilityReport> futureReport : futureReports) {
             try {
                 ReachabilityReport reachabilityReport = futureReport.get();
-                if (reachabilityReport.isReachable()){
+                if (reachabilityReport != null && reachabilityReport.isReachable()){
                     reachableInstances.add(reachabilityReport.getReceiver());
                 }
             } catch (Exception e) {

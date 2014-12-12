@@ -20,16 +20,17 @@ import org.opendaylight.controller.samples.differentiatedforwarding.openstack.Op
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.ReachabilityManager;
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.BwReport.Type;
 import org.openstack4j.model.compute.Server;
-import org.openstack4j.model.compute.Server.Status;
 import org.openstack4j.model.network.Network;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BwExp implements Callable<BwExpReport>{
 
-    private static Logger log = LoggerFactory.getLogger(BwExp.class);
+    private String bwExpName;
+    private Logger log;
     private static final int ACCEPTABLE_FAILURE_PERCENTAGE = 50;
     private static final int REACHABILITY_RETRIES = 20;
+
 
     private int classValue;
     private int networkIndex;
@@ -38,8 +39,8 @@ public class BwExp implements Callable<BwExpReport>{
     private long startTime;
     private long endTime;
 
-    private boolean deleteNetwork = true;
-    private boolean deleteInstances = true;
+    private boolean deleteNetwork = Exp.DELETE_NETWORKS;
+    private boolean deleteInstances = Exp.DELETE_INSTANCES;
     private boolean networkMayExist = true;
     private boolean runClassExpConcurrently = false;
     private boolean runInstanceExpConcurrently = false;
@@ -69,13 +70,15 @@ public class BwExp implements Callable<BwExpReport>{
         String networkName = "class" + classValue + "net" + networkIndex;
         String cidr = "10." + classValue + "." + networkIndex + ".0/24";
         String vmNamePrefix = "vm-" + networkName + "-";
+        bwExpName = "BwExp=classValue:" + classValue + "-networkIndex:" + networkIndex + "-instanceNum:" + instanceNum;
+        log = LoggerFactory.getLogger(BwExp.class+"("+ bwExpName + ")");
 
         executorService = Executors.newCachedThreadPool();
         network = OpenStackUtil.createNetwork(networkName, cidr, networkMayExist);
         instances = OpenStackUtil.createInstances(vmNamePrefix, networkName, instanceNum);
         notReachableinstances = new HashSet<>(instances);
         reachableInstances = new HashSet<>();
-        programNetwork();
+//        programNetwork();
     }
 
 
@@ -111,9 +114,9 @@ public class BwExp implements Callable<BwExpReport>{
     private boolean isReady(){
         log.trace("isReady: {}", instances);
         if (instances == null || instances.size() == 0) return false;
-        for (Server server : instances) {
-            if (!server.getStatus().equals(Status.ACTIVE)) return false;
-        }
+//        for (Server server : instances) {
+//            if (server.getStatus() == null || !server.getStatus().equals(Status.ACTIVE)) return false;
+//        }
 
         checkReachables();
         if (reachableInstances.size() == instances.size()) {
@@ -125,7 +128,8 @@ public class BwExp implements Callable<BwExpReport>{
 
     private void checkReachables() {
         //FIXME: check for server.hashCode, this may be problematic.
-
+        if (notReachableinstances == null || notReachableinstances.size() == 0) return;
+        notReachableinstances = OpenStackUtil.reloadInstances(notReachableinstances);
         Set<Server> currentlyReachable = ReachabilityManager.getReachables(notReachableinstances, network);
         if (currentlyReachable == null) return;
         reachableInstances.addAll(currentlyReachable);
@@ -173,7 +177,7 @@ public class BwExp implements Callable<BwExpReport>{
                         deleteNetwork, deleteInstances, networkMayExist,
                         runClassExpConcurrently, runInstanceExpConcurrently,
                         network, instances, reachableInstances, notReachableinstances,
-                        null);
+                        new ArrayList<BwReport>());
                 return errorReport;
             }
         }
@@ -275,6 +279,10 @@ public class BwExp implements Callable<BwExpReport>{
         } catch (Exception e) {
             log.error("cleanUp: ", e);
         }
+    }
+
+    public String getBwExpName() {
+        return bwExpName;
     }
 
 }

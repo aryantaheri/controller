@@ -3,6 +3,7 @@ package org.opendaylight.controller.samples.differentiatedforwarding.openstack;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.BwReport;
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.ReachabilityReport;
@@ -39,7 +40,8 @@ public class OpenStackUtil {
     public static final String defaultKeyPair = "cloud-keypair";
     public static final String defaultVmPubKey = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDBKfIhlJ1NkcRJdbyqtaE07UGBTuH5L71WCZ406jRLM5itEaMdM+HuTimetTwBN7W5HO4msEFllAdZCansEXmmY6jEfFMHtpbXOwKso1fKPmcjE/oj+cVBbF0ORgtnf4Rr8/b/QbIHm3sdStl0nO5IE/PKsSxXU1I+OWTkeUMVbcbqOZc/dPW9uoEBYlA+3O4p7tCAy/HlO0TuNUpghLyyaVNdv+KOnNPzMO4x8BfIV+oi6D3Z0WB0/9aci6UN8RsIoopG6HKh5aMM1a4wXZko5nW7Zv8JAUurj2kpu3Ia+9BGrlhB1GESBGOxFm7Yv9QuQAvTlNVLuNhcvrW+MS1T fedora@f-control-1";
     public static final String defaultTenantName = "admin";
-    public static final String defaultImage = "cirros-iperf-nuttcp";
+    public static final String defaultImage = "cirros-iperf-nuttcp-dhcp";
+//    public static final String defaultImage = "cirros-iperf-nuttcp";
     public static final String defaultFlavor = "m1.nano";
 
     public static Map<String, String> vmKeyPair;
@@ -47,7 +49,7 @@ public class OpenStackUtil {
     private static OSClient os;
     static {
         vmKeyPair = new HashMap<String, String>();
-        vmKeyPair.put(defaultKeyPair, "/tmp/cloud-keypair.pem");
+        vmKeyPair.put(defaultKeyPair, "/root/openstack/cloud-keypair.pem");
 
         os = OSFactory.builder()
                 .endpoint("http://nuc2:5000/v2.0")
@@ -96,10 +98,20 @@ public class OpenStackUtil {
 //        OpenStackManager.createNetwork(os, defaultTenantName, "net20", "10.20.0.0/24");
 //        reachability();
 //        deleteNetwork("class1net1");
+
         deleteAllInstances();
+        deleteAllNetworks();
+//        listCompute();
 //        testNuttcp();
 //        testNuttcpPersistentServer(os, "anet2", false);
 //        list(os);
+    }
+
+    private static void listCompute() {
+        OSClient osClient = OSFactory.clientFromAccess(access);
+        List<? extends Hypervisor> hypervisors = osClient.compute().hypervisors().list();
+        System.out.println(hypervisors);
+        System.out.println(osClient.identity().services().list());
     }
 
     private static void reachability() {
@@ -110,6 +122,7 @@ public class OpenStackUtil {
             log.info("ReachabilityReport: {}", report);
         }
     }
+
     private static void list(OSClient os){
 
 
@@ -186,6 +199,11 @@ public class OpenStackUtil {
         return instances;
     }
 
+    public static Set<Server> reloadInstances(Set<? extends Server> instances) {
+        OSClient osClient = OSFactory.clientFromAccess(access);
+        return OpenStackManager.reloadInstances(osClient, instances);
+    }
+
     public static void deleteAllInstances() {
         OSClient osClient = OSFactory.clientFromAccess(access);
         OpenStackManager.deleteAllInstances(osClient);
@@ -208,6 +226,13 @@ public class OpenStackUtil {
         return OpenStackManager.createNetwork(osClient, defaultTenantName, networkName, cidr);
     }
 
+    public static void deleteAllNetworks() {
+        OSClient osClient = OSFactory.clientFromAccess(access);
+        List<? extends Network> networks = osClient.networking().network().list();
+        for (Network network : networks) {
+            OpenStackManager.deleteNetworkById(osClient, network.getId());
+        }
+    }
     public static void deleteNetworkById(String networkUuid){
         OSClient osClient = OSFactory.clientFromAccess(access);
         OpenStackManager.deleteNetworkById(osClient, networkUuid);
