@@ -17,6 +17,8 @@ import org.opendaylight.controller.sal.core.Path;
 import org.opendaylight.controller.sal.utils.ServiceHelper;
 import org.osgi.framework.ServiceRegistration;
 
+import edu.uci.ics.jung.graph.Graph;
+
 public class YKShortestPathsCLI {
     @SuppressWarnings("rawtypes")
     private ServiceRegistration sr = null;
@@ -30,7 +32,7 @@ public class YKShortestPathsCLI {
     public void start() {
         final Dictionary<String, Object> props = new Hashtable<String, Object>();
         props.put("osgi.command.scope", "odpcontroller");
-        props.put("osgi.command.function", new String[] { "getkShortestRoutes" });
+        props.put("osgi.command.function", new String[] { "getkShortestRoutes", "getYKTopo" });
         this.sr = ServiceHelper.registerGlobalServiceWReg(YKShortestPathsCLI.class, this, props);
     }
 
@@ -72,6 +74,30 @@ public class YKShortestPathsCLI {
             }
         } else {
             System.out.println("There is no route between srcNode:" + src + " and dstNode:" + dst);
+        }
+    }
+
+    public void getYKTopo() {
+        System.out.println("YKShortestPathsCLI.getYKTopo ");
+        IKShortestRoutes r = null;
+        Object[] rList = ServiceHelper.getInstances(IKShortestRoutes.class, "default", this, null);
+        for (int i = 0; i < rList.length; i++) {
+            if (rList[i] instanceof YKShortestPaths)
+                r = (IKShortestRoutes) rList[i];
+        }
+
+        if (r == null) {
+            System.out.println("Cannot find the YKSP routing instance ");
+            return;
+        }
+        System.out.println("YKShortestPathsCLI.getYKTopo IRouting is retrieved: " + r.getClass());
+        Graph<Node, WeightedEdge> topo = r.getYKTopo();
+        if (topo != null) {
+            System.out.println("Topo:" + topo);
+            System.out.println("Topo Vertices:" + topo.getVertices());
+            System.out.println("Topo Edges:" + topo.getEdges());
+        } else {
+            System.out.println("Topo is null");
         }
     }
 }

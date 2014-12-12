@@ -6,6 +6,8 @@ import org.opendaylight.controller.sal.core.Edge;
 import org.opendaylight.controller.sal.core.Node;
 import org.opendaylight.controller.sal.core.Path;
 
+import edu.uci.ics.jung.graph.Graph;
+
 public interface IKShortestRoutes {
 
     /**
@@ -20,6 +22,7 @@ public interface IKShortestRoutes {
      * @return a List of {@link org.opendaylight.controller.sal.core.Path}
      */
     public List<Path> getKShortestRoutes(Node src, Node dst, int k);
+    public Graph<Node,WeightedEdge> getYKTopo();
     public void ignoreEdge(Edge edge, boolean ignoreReverseAsWell);
     public void clear();
 }

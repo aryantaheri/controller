@@ -99,6 +99,10 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
 
     }
 
+    public Graph<Node,WeightedEdge> getYKTopo() {
+        return ykspTopology;
+    }
+
     @Override
     public synchronized void clear() {
         yenKShortestPathsAlgo.resetDijkstraShortestPath();
