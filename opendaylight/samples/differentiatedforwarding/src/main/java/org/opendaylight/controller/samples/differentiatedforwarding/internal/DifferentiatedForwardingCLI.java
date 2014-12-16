@@ -33,7 +33,7 @@ public class DifferentiatedForwardingCLI {
         final Dictionary<String, Object> props = new Hashtable<String, Object>();
         props.put("osgi.command.scope", "odpcontroller");
         props.put("osgi.command.function", new String[] { "programTunnel", "programTEPs", "programNetwork", "getMdNode", "getExternalInterface", "getTenantLocalInterfaces", "getProgrammedPath", "reportNetwork",
-                "runSimpleExp", "runExp", "execCmd"});
+                "runSimpleExp", "runExp", "execCmd", "prepareMeter"});
         this.sr = ServiceHelper.registerGlobalServiceWReg(DifferentiatedForwardingCLI.class, this, props);
     }
 
@@ -269,5 +269,16 @@ public class DifferentiatedForwardingCLI {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void prepareMeter(@Descriptor("Node name") String nodeName,
+                           @Descriptor("DSCP") int dscp){
+        IForwarding forwarding = (IForwarding) ServiceHelper.getInstance(IForwarding.class, "default", this);
+        if(forwarding == null){
+            System.err.println("DifferentiatedForwardingCLI - getExternalInterface: IForwarding is not available");
+            return;
+        }
+        Node node = forwarding.getMdNode(nodeName);
+        forwarding.prepareMeter(node, (short) dscp);
     }
 }

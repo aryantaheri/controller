@@ -57,6 +57,9 @@ import org.opendaylight.ovsdb.schema.openvswitch.Port;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNodeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.Meter;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.Table;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableKey;
@@ -132,7 +135,8 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
     private static final int PRIORITY_TUNNEL_DST_OUT = 1001;
     private static final int PRIORITY_TUNNEL_INGRESS_DSCP_MARKING = PRIORITY_MAX;
 
-    private static final int RETRIES = 3;
+    private static final int RETRIES = 4;
+    private static final int RETRIES_SLEEP = 1000; // in ms
     /**
      * Function called by the dependency manager when all the required
      * dependencies are satisfied
@@ -219,8 +223,9 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         if (paths.size() >= classNum){
             path = paths.get(classNum - 1);
         } else {
-            log.error("programTunnelForwarding: request classNum {} is not possible, setting largest possible value {}", classNum, paths.size());
+            log.error("programTunnelForwarding: request classNum {} is not possible, setting largest possible value {} for tunnel {}", classNum, paths.size(), tunnel);
             path = paths.get(paths.size() - 1);
+            classNum = paths.size() - 1;
         }
 
         log.debug("programTunnelForwarding: selected path for tunnel {} with classNum {} is {}", tunnel, classNum, path);
@@ -259,7 +264,8 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                 // Tunnel source
                 programTunnelSource(tunnel, outPortMDNode, outPortMDNC, write);
 
-                writeLLDPRule(outPortMDNode);
+// These two are required when using mininet, or wo/ app coexistence
+//                writeLLDPRule(outPortMDNode);
 //                writeNormalRule(outPortMDNode);
             } else {
                 // Transit node or err
@@ -279,7 +285,9 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         // 1) Use a NORMAL rule to find the host, and forward
         // 2) Be more strict, discover IP-MAC resolution, and program flow accordingly
         Node tepDstNode = constructMDNode(lastInPort.getNode());
-        writeLLDPRule(tepDstNode);
+
+// These two are required when using mininet, or wo/ app coexistence
+//        writeLLDPRule(tepDstNode);
 //        writeNormalRule(tepDstNode);
     }
 
@@ -730,6 +738,8 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             return;
         }
 
+        MeterBuilder meterBuilder = prepareMeter(outPortMDNode, tunnelsDscp.get(tunnel));
+
         MatchBuilder matchBuilder = new MatchBuilder();
         FlowBuilder flowBuilder = new FlowBuilder();
         NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(outPortMDNode, TABLE_0_DEFAULT_INGRESS);
@@ -784,16 +794,25 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             log.debug("programEdgeTail: Add/Update flow {} to node {}", flowBuilder, nodeBuilder);
             // Instantiate the Builders for the OF Actions and Instructions
             InstructionBuilder ib = new InstructionBuilder();
+            InstructionBuilder ib2 = new InstructionBuilder();
             InstructionsBuilder isb = new InstructionsBuilder();
 
             // Instructions List Stores Individual Instructions
             List<Instruction> instructions = new ArrayList<Instruction>();
 
             // Set the Output Port/Iface
+            ib2 = OpenFlowUtils.createMeterInstructions(ib2, meterBuilder.getMeterId());
+            ib2.setOrder(0);
+            ib2.setKey(new InstructionKey(0));
+            instructions.add(ib2.build());
+
+            // Set the Output Port/Iface
             ib = OpenFlowUtils.createOutputPortInstructions(ib, outPortMDNode, outPortMDNC);
-            ib.setOrder(0);
-            ib.setKey(new InstructionKey(0));
+            ib.setOrder(1);
+            ib.setKey(new InstructionKey(1));
             instructions.add(ib.build());
+
+
 
             // Add InstructionBuilder to the Instruction(s)Builder List
             isb.setInstruction(instructions);
@@ -810,6 +829,73 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         }
     }
 
+    @Override
+    public MeterBuilder prepareMeter(Node node, short dscp){
+        MeterBuilder meterBuilder = OpenFlowUtils.createMeter(dscp);
+        NodeBuilder nodeBuilder = getFlowCapableNodeBuilder(node, TABLE_0_DEFAULT_INGRESS);
+        writeMeter(meterBuilder, nodeBuilder, RETRIES);
+        return meterBuilder;
+    }
+
+    private void writeMeter(final MeterBuilder meterBuilder, final NodeBuilder nodeBuilder, final int retries) {
+        log.debug("writeMeter: Entry");
+        IMDSALConsumer mdsalConsumer = (IMDSALConsumer) ServiceHelper.getInstance(IMDSALConsumer.class, "default", this);
+        if (mdsalConsumer == null) {
+            log.error("writeMeter: ERROR finding MDSAL Service.");
+            return;
+        }
+
+        DataBroker dataBroker = mdsalConsumer.getDataBroker();
+        if (dataBroker == null) {
+            log.error("writeMeter: ERROR finding reference for DataBroker. Please check out the MD-SAL support on the Controller.");
+            return;
+        }
+
+        ReadWriteTransaction modification = dataBroker.newReadWriteTransaction();
+        InstanceIdentifier<Meter> meterPath = InstanceIdentifier
+                                                .create(Nodes.class)
+                                                .child(Node.class, nodeBuilder.getKey())
+                                                .augmentation(FlowCapableNode.class)
+                                                .child(Meter.class, new MeterKey(meterBuilder.getMeterId()));
+
+        InstanceIdentifier<Node> nodePath = InstanceIdentifier
+                                                .create(Nodes.class)
+                                                .child(Node.class, nodeBuilder.getKey());
+
+        modification.merge(LogicalDatastoreType.CONFIGURATION, nodePath, nodeBuilder.build(), true);
+        modification.merge(LogicalDatastoreType.CONFIGURATION, meterPath, meterBuilder.build(), true);
+        com.google.common.util.concurrent.CheckedFuture<Void, org.opendaylight.controller.md.sal.common.api.data.TransactionCommitFailedException> commitFuture = modification.submit();
+        Futures.addCallback(commitFuture, new FutureCallback<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+                log.info("writeMeter: successfully added meterName {} to nodeKey {}", meterBuilder.getMeterName(), nodeBuilder.getKey());
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+                log.error("writeMeter: onFailure meterName {} nodeKey {} ExceptionMsg {}", meterBuilder.getMeterName(), nodeBuilder.getKey(), t.getMessage());
+                log.trace("writeMeter: onFailure {}", t.getStackTrace());
+                if(t instanceof OptimisticLockFailedException) {
+                    // Failed because of concurrent transaction modifying same data
+                    log.error("writeMeter: onFailure Failed because of concurrent transaction modifying same data, we should retry. meterName {} nodeKey {} ", meterBuilder.getMeterName(), nodeBuilder.getKey());
+                    if ((retries - 1) > 0){
+                        log.info("writeMeter: retrying for meterName {} nodeKey {} retry {}", meterBuilder.getMeterName(), nodeBuilder.getKey(), retries);
+                        try {
+                            Thread.sleep(RETRIES_SLEEP);
+                        } catch (InterruptedException e) {
+                            log.error("writeMeter: onFailure: Fantastic failure in failure", e);
+                        }
+                        writeMeter(meterBuilder, nodeBuilder, retries - 1);
+                    } else {
+                        log.error("writeMeter: no more retries for meterName {} nodeKey {}. Aborting", meterBuilder.getMeterName(), nodeBuilder.getKey());
+                    }
+                } else {
+//                    log.error("writeMeter: onFailure", t);
+
+                }
+            }
+        });
+    }
 
     private void removeFlow(FlowBuilder flowBuilder, NodeBuilder nodeBuilder) {
         log.error("removeFlow: not implemented");
@@ -860,12 +946,18 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
             @Override
             public void onFailure(final Throwable t) {
-                log.error("writeFlow: onFailure flowBuilder {} nodeBuilder {}", flowBuilder.getFlowName(), nodeBuilder.getId(), t);
+                log.error("writeFlow: onFailure flowBuilder {} nodeBuilder {} ExceptionMsg {}", flowBuilder.getFlowName(), nodeBuilder.getId(), t.getMessage());
+                log.trace("writeFlow: onFailure {}", t.getStackTrace());
                 if(t instanceof OptimisticLockFailedException) {
                     // Failed because of concurrent transaction modifying same data
                     log.error("writeFlow: onFailure: Failed because of concurrent transaction modifying same data, we should retry");
                     if ((retries - 1) > 0){
-                        log.debug("writeFlow: retrying for flowBuilder {} nodeBuilder {}", flowBuilder.getFlowName(), nodeBuilder.getId());
+                        log.info("writeFlow: retrying for flowBuilder {} nodeBuilder {} retry {}", flowBuilder.getFlowName(), nodeBuilder.getId(), retries);
+                        try {
+                            Thread.sleep(RETRIES_SLEEP);
+                        } catch (InterruptedException e) {
+                            log.error("writeFlow: onFailure: Fantastic failure in failure", e);
+                        }
                         writeFlow(flowBuilder, nodeBuilder, retries - 1);
                     } else {
                         log.error("writeFlow: no more retries for flowBuilder {} nodeBuilder {}. Aborting", flowBuilder.getFlowName(), nodeBuilder.getId());
@@ -1229,6 +1321,13 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
         return nodeBuilder;
 
+    }
+
+    private static NodeBuilder getNodeBuilder(Node node){
+        NodeBuilder nodeBuilder = new NodeBuilder(node);
+        nodeBuilder.setKey(new NodeKey(nodeBuilder.getId()));
+
+        return nodeBuilder;
     }
 
     @Override

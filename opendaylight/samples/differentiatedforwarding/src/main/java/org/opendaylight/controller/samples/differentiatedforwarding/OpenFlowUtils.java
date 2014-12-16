@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.opendaylight.controller.routing.yenkshortestpaths.internal.YKShortestPaths;
 import org.opendaylight.openflowplugin.openflow.md.util.ActionUtil;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Dscp;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Ipv4Prefix;
@@ -18,13 +19,25 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.acti
 //import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.Action;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.meters.MeterKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.flow.MatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.ApplyActionsCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.MeterCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.apply.actions._case.ApplyActionsBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.InstructionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.l2.types.rev130827.EtherType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.BandId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.MeterBandType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.MeterFlags;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.MeterId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.band.type.band.type.DropBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.meter.MeterBandHeadersBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.meter.meter.band.headers.MeterBandHeader;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.meter.meter.band.headers.MeterBandHeaderBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.meter.types.rev130918.meter.meter.band.headers.meter.band.header.MeterBandTypesBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetTypeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.EthernetMatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.IpMatchBuilder;
@@ -341,6 +354,18 @@ public class OpenFlowUtils {
         return ib;
     }
 
+    public static InstructionBuilder createMeterInstructions(InstructionBuilder ib, MeterId meterId) {
+        org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.meter._case.MeterBuilder mb = new org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.meter._case.MeterBuilder();
+        mb.setMeterId(meterId);
+        logger.debug("createMeterInstructions() meter {}", meterId);
+
+        MeterCaseBuilder mcb = new MeterCaseBuilder();
+        mcb.setMeter(mb.build());
+
+        ib.setInstruction(mcb.build());
+        return ib;
+    }
+
     /**
      * Create Set DSCP Instruction. Note this won't set the two least significant bits of ToS for OVS (i.e. ECN)
      *
@@ -522,6 +547,47 @@ public class OpenFlowUtils {
         resubmitActionBuilder.setOrder(order);
         resubmitActionBuilder.setKey(new ActionKey(order));
         return resubmitActionBuilder.build();
+    }
+
+    public static MeterBuilder createMeter(short dscp){
+        // in Kbps
+        long rate = YKShortestPaths.DEFAULT_LINK_SPEED/(1000 * dscp);
+
+        String meterName = "meter"+dscp;
+        MeterKey key = new MeterKey(new MeterId((long) dscp));
+        MeterBuilder meter = new MeterBuilder();
+//        meter.setContainerName("abcd");
+        meter.setKey(key);
+        meter.setMeterId(key.getMeterId());
+        meter.setMeterName(meterName);
+        meter.setFlags(new MeterFlags(false, true, false, false));
+
+        MeterBandHeadersBuilder bandHeadersBuilder = new MeterBandHeadersBuilder();
+        List<MeterBandHeader> bandHeaderList = new ArrayList<MeterBandHeader>();
+        MeterBandHeaderBuilder bandHeaderBuilder = new MeterBandHeaderBuilder();
+        bandHeaderBuilder.setBandRate(rate);
+        bandHeaderBuilder.setBandBurstSize(rate);
+//        bandHeader.setBandBurstSize((long) 444);
+//        DscpRemarkBuilder dscpRemark = new DscpRemarkBuilder();
+//        dscpRemark.setDscpRemarkBurstSize((long) 5);
+//        dscpRemark.setPrecLevel((short) 1);
+//        dscpRemark.setDscpRemarkRate((long) 12);
+//        bandHeader.setBandType(dscpRemark.build());
+        DropBuilder dropBuilder = new DropBuilder();
+        dropBuilder.setDropRate(rate);
+        dropBuilder.setDropBurstSize(rate);
+        bandHeaderBuilder.setBandType(dropBuilder.build());
+
+        MeterBandTypesBuilder bandTypes = new MeterBandTypesBuilder();
+        MeterBandType bandType = new MeterBandType(true, false, false);
+        bandTypes.setFlags(bandType);
+        bandHeaderBuilder.setMeterBandTypes(bandTypes.build());
+        bandHeaderBuilder.setBandId(new BandId((long) dscp));
+        bandHeaderList.add(bandHeaderBuilder.build());
+        bandHeadersBuilder.setMeterBandHeader(bandHeaderList);
+
+        meter.setMeterBandHeaders(bandHeadersBuilder.build());
+        return meter;
     }
 
 
