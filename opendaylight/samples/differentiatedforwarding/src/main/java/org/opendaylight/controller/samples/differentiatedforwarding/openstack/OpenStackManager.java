@@ -14,6 +14,7 @@ import org.openstack4j.model.compute.ServerCreate;
 import org.openstack4j.model.image.Image;
 import org.openstack4j.model.network.IPVersionType;
 import org.openstack4j.model.network.Network;
+import org.openstack4j.model.network.NetworkType;
 import org.openstack4j.model.network.Subnet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,9 +89,14 @@ public class OpenStackManager {
         }
     }
 
-    public static Network createNetwork(OSClient os, String tenantName, String networkName, String cidr){
+    public static Network createNetwork(OSClient os, String tenantName, String networkName, String cidr, String segmentationId){
         String tenantUuid = os.identity().tenants().getByName(tenantName).getId();
-        Network network = Builders.network().name(networkName).tenantId(tenantUuid).adminStateUp(true).build();
+        Network network;
+        if (segmentationId == null || segmentationId.equalsIgnoreCase("")){
+            network = Builders.network().name(networkName).tenantId(tenantUuid).networkType(NetworkType.GRE).adminStateUp(true).build();
+        } else {
+            network = Builders.network().name(networkName).tenantId(tenantUuid).networkType(NetworkType.GRE).segmentId(segmentationId).adminStateUp(true).build();
+        }
         network = os.networking().network().create(network);
         Subnet subnet = Builders.subnet()
                 .name("sub"+networkName)
