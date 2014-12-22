@@ -154,7 +154,7 @@ public class OpenStackUtil {
         Image image = OpenStackManager.getImage(os, imageName);
         Flavor flavor = OpenStackManager.getFlavor(os, flavorName);
         Network network = OpenStackManager.getNetwork(os, networkName);
-        if (network == null) OpenStackManager.createNetwork(os, tenantName, networkName, "10.2.0.0/24");
+        if (network == null) OpenStackManager.createNetwork(os, tenantName, networkName,"10.2.0.0/24", null);
 
         OpenStackManager.createKeyPair(os, keyPairName, defaultVmPubKey);
 
@@ -214,7 +214,7 @@ public class OpenStackUtil {
         OpenStackManager.deleteInstances(osClient, instances);
     }
 
-    public static Network createNetwork(String networkName, String cidr, boolean mayExist){
+    public static Network createNetwork(String networkName, String cidr, String segmentationId, boolean mayExist){
         OSClient osClient = OSFactory.clientFromAccess(access);
         if (mayExist){
             Network network = OpenStackManager.getNetwork(osClient, networkName);
@@ -223,7 +223,7 @@ public class OpenStackUtil {
                 return network;
             }
         }
-        return OpenStackManager.createNetwork(osClient, defaultTenantName, networkName, cidr);
+        return OpenStackManager.createNetwork(osClient, defaultTenantName, networkName, cidr, segmentationId);
     }
 
     public static void deleteAllNetworks() {
