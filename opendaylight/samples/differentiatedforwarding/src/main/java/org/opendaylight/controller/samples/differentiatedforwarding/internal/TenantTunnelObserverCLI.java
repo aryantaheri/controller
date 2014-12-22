@@ -77,6 +77,8 @@ public class TenantTunnelObserverCLI {
         }
         tunnelObserver.loadTunnelEndPoints();
         System.out.println("LoadTunnelEndPoint finished");
+        HashMap<String, Set<TunnelEndPoint>> tepsMap = tunnelObserver.getTunnelEndPoints();
+        System.out.println(tepsMap);
     }
 
 }
