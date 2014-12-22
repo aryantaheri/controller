@@ -57,7 +57,7 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
 
     private Graph<Node, WeightedEdge> ykspTopology;
     private Yen<Node, WeightedEdge> yenKShortestPathsAlgo;
-    private static final long DEFAULT_LINK_SPEED = Bandwidth.BW1Gbps;
+    public static final long DEFAULT_LINK_SPEED = Bandwidth.BW1Gbps;
     private Set<Edge> ignoredEdges;
 
     private Set<IListenRoutingUpdates> routingAware;
@@ -99,6 +99,7 @@ public class YKShortestPaths implements ITopologyManagerClusterWideAware, IKShor
 
     }
 
+    @Override
     public Graph<Node,WeightedEdge> getYKTopo() {
         return ykspTopology;
     }
