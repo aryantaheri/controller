@@ -1,7 +1,10 @@
 package org.opendaylight.controller.samples.differentiatedforwarding.openstack.ssh;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.SshUtil;
 import org.slf4j.Logger;
@@ -22,6 +25,7 @@ public class OvsManager {
     private static final int INIT_SLEEP = 20*1000;
     private static final int FLOW_RELOAD_SLEEP = 60*1000;
     private static final int RETRIES = 10;
+    private static Map<String, List<String>> fixedTunnels = new HashMap<>();
 
     static {
         nodeTunnelIp.put("nuc2", "172.16.10.2");
@@ -32,9 +36,9 @@ public class OvsManager {
 
     public static void main(String[] args) {
         try {
-            boolean readyForNext = fixNucs();
-            log.info("ReadyForNext: {}", readyForNext);
-//            fixTunnelTos();
+//            boolean readyForNext = fixNucs();
+//            log.info("ReadyForNext: {}", readyForNext);
+            fixTunnelTos();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -61,18 +65,37 @@ public class OvsManager {
 
     }
 
-    public static void fixTunnelTos() throws Exception {
+    public static void fixTunnelTos(){
         for (String node : nodeTunnelIp.keySet()) {
             for (String ip : nodeTunnelIp.values()) {
                 if (nodeTunnelIp.get(node).equalsIgnoreCase(ip)) continue;
-                setTunnelTos(node, "gre-"+ip);
+                String tunnelName = "gre-"+ip;
+                if (fixedTunnels.get(node) != null && fixedTunnels.get(node).contains(tunnelName)) {
+                    continue;
+                }
+                try {
+                    CommandOutPut output;
+                    output = setTunnelTos(node, tunnelName);
+                    if (output.getExitStatus() == 0){
+                        List<String> tunnels = fixedTunnels.get(node);
+                        if (tunnels == null) {
+                            tunnels = new ArrayList<>();
+                            fixedTunnels.put(node, tunnels);
+                        }
+                        tunnels.add(tunnelName);
+                    } else {
+                        log.warn("Can't fix ToS on Node {} for Tunnel {} Error {}", node, tunnelName, output.getError());
+                    }
+                } catch (Exception e) {
+                    log.error("fixTunnelTos Exception", e);
+                }
             }
         }
     }
 
     private static void clean(String hostName) throws Exception {
-        delFlows(hostName);
-        Thread.sleep(SLEEP);
+//        delFlows(hostName);
+//        Thread.sleep(SLEEP);
 
         delManager(hostName);
         Thread.sleep(SLEEP);
@@ -126,8 +149,8 @@ public class OvsManager {
         SshUtil.execCmd(hostName, "ifconfig br-int " + ip + " netmask 255.255.255.0");
     }
 
-    private static void setTunnelTos(String hostName, String tunnelName) throws Exception {
-        SshUtil.execCmd(hostName, "ovs-vsctl set interface " + tunnelName + " options:tos=inherit");
+    private static CommandOutPut setTunnelTos(String hostName, String tunnelName) throws Exception {
+        return SshUtil.execCmd(hostName, "ovs-vsctl set interface " + tunnelName + " options:tos=inherit");
     }
 
     private static boolean verifyInit(String hostName) throws Exception {
