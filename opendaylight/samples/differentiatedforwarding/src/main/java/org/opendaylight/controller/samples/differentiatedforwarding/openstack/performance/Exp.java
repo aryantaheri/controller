@@ -14,9 +14,10 @@ public class Exp {
 
     public static final boolean DELETE_INSTANCES = true;
     public static final boolean DELETE_NETWORKS = true;
+    public static final boolean FIX_OVS = false;
 
     // This is more like a wrong name. It should be ClassNetwork concurrency. It runs the networks concurrently with the given classes.
-    public static final boolean RUN_CLASSES_CONCURRENTLY = false;
+    public static final boolean RUN_CLASSES_CONCURRENTLY = true;
     public static final boolean RUN_INSTANCES_CONCURRENTLY = false;
 
     int[] instanceRange;
@@ -64,7 +65,8 @@ public class Exp {
                     subExp.exec();
                     log.info("SubExp {} is executed completely. Dir {}", subExp.getSubExpName(), expDir);
                     Thread.sleep(1000*insNum);
-                    boolean readyForNext = OvsManager.fixNucs();
+                    boolean readyForNext = true;
+                    if (FIX_OVS) readyForNext = OvsManager.fixNucs();
                     if (!readyForNext){
                         log.error("OVS is not ready for the next experiment.");
                         return;
@@ -97,7 +99,7 @@ public class Exp {
 //        int[] classRange = {1};
 //        new Exp( classRange, 1, 1, 2, 2, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
 
-        int[] classRange = {1};
+        int[] classRange = {1,2,3,4};
         getSimpleExp(classRange).exec();
 
 //        new Exp( classRange, 1, 8, 1, 32, RUN_CLASSES_CONCURRENTLY, RUN_INSTANCES_CONCURRENTLY).exec();
