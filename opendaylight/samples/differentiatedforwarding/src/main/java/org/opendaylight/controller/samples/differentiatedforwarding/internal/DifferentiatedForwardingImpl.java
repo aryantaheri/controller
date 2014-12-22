@@ -137,6 +137,29 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 
     private static final int RETRIES = 4;
     private static final int RETRIES_SLEEP = 1000; // in ms
+
+    public static enum CoreQosStrategy {
+        NONE, METER, QUEUE, METER_QUEUE;
+
+        public static CoreQosStrategy getStrategy(int id){
+            switch (id) {
+            case 0:
+                return NONE;
+
+            case 1:
+                return METER;
+
+            case 2:
+                return QUEUE;
+
+            case 3:
+                return METER_QUEUE;
+
+            default:
+                return NONE;
+            }
+        }
+    }
     /**
      * Function called by the dependency manager when all the required
      * dependencies are satisfied
@@ -194,9 +217,9 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
 //        }
     }
 
-    public void programTunnels(List<Tunnel> tunnels, int classNum, boolean write){
+    public void programTunnels(List<Tunnel> tunnels, int classNum, CoreQosStrategy coreQosStrategy, boolean write){
         for (Tunnel tunnel : tunnels) {
-            programTunnelForwarding(tunnel, classNum, write);
+            programTunnelForwarding(tunnel, classNum, coreQosStrategy, write);
         }
     }
 
@@ -209,7 +232,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      * @param classNum the Kth shortest path. K > 0
      */
     @Override
-    public void programTunnelForwarding(Tunnel tunnel, int classNum, boolean write){
+    public void programTunnelForwarding(Tunnel tunnel, int classNum, CoreQosStrategy coreQosStrategy, boolean write){
         log.debug("programTunnelForwarding: Tunnel {} classNum {} write {}", tunnel, classNum, write);
         org.opendaylight.controller.sal.core.Node srcNode = tunnel.getSrcNodeConnector().getNode();
         org.opendaylight.controller.sal.core.Node dstNode = tunnel.getDstNodeConnector().getNode();
@@ -272,7 +295,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                 lastInPortMDNode = constructMDNode(lastInPort.getNode());
                 lastInPortMDNC = constructMDNodeConnector(lastInPort);
 
-                programEdgeTail(tunnel, lastInPortMDNode, lastInPortMDNC, outPortMDNode, outPortMDNC, write);
+                programEdgeTail(tunnel, lastInPortMDNode, lastInPortMDNC, outPortMDNode, outPortMDNC, coreQosStrategy, write);
             }
 
             lastInPort = inPort;
@@ -731,7 +754,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
      * @param write
      */
     private void programEdgeTail(final Tunnel tunnel, final Node lastInPortMDNode, final NodeConnector lastInPortMDNC,
-                                        final Node outPortMDNode, final NodeConnector outPortMDNC, boolean write) {
+                                        final Node outPortMDNode, final NodeConnector outPortMDNC, CoreQosStrategy coreQosStrategy, boolean write) {
 
         if (lastInPortMDNode != null && !lastInPortMDNode.equals(outPortMDNode)){
             log.error("programEdgeTail: lastInPortNode {} is not equal to outPort {}. Inconsistency found, returning", lastInPortMDNode, outPortMDNode);
@@ -800,17 +823,55 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             // Instructions List Stores Individual Instructions
             List<Instruction> instructions = new ArrayList<Instruction>();
 
-            // Set the Output Port/Iface
-            ib2 = OpenFlowUtils.createMeterInstructions(ib2, meterBuilder.getMeterId());
-            ib2.setOrder(0);
-            ib2.setKey(new InstructionKey(0));
-            instructions.add(ib2.build());
+            switch (coreQosStrategy) {
+            case NONE:
+             // Set queue and send out
+                ib = OpenFlowUtils.createOutputPortInstructions(ib, outPortMDNode, outPortMDNC);
+                ib.setOrder(0);
+                ib.setKey(new InstructionKey(0));
+                instructions.add(ib.build());
 
-            // Set the Output Port/Iface
-            ib = OpenFlowUtils.createOutputPortInstructions(ib, outPortMDNode, outPortMDNC);
-            ib.setOrder(1);
-            ib.setKey(new InstructionKey(1));
-            instructions.add(ib.build());
+                break;
+
+            case METER:
+                // Set the meter
+                ib2 = OpenFlowUtils.createMeterInstructions(ib2, meterBuilder.getMeterId());
+                ib2.setOrder(0);
+                ib2.setKey(new InstructionKey(0));
+                instructions.add(ib2.build());
+
+                // Set the Output Port/Iface
+                ib = OpenFlowUtils.createOutputPortInstructions(ib, outPortMDNode, outPortMDNC);
+                ib.setOrder(1);
+                ib.setKey(new InstructionKey(1));
+                instructions.add(ib.build());
+
+                break;
+
+            case QUEUE:
+                // Set queue and send out
+                ib = OpenFlowUtils.createSetQueueOutputPortInstructions(ib, outPortMDNode, outPortMDNC, tunnelsDscp.get(tunnel));
+                ib.setOrder(0);
+                ib.setKey(new InstructionKey(0));
+                instructions.add(ib.build());
+
+                break;
+
+            case METER_QUEUE:
+                // Set the meter
+                ib2 = OpenFlowUtils.createMeterInstructions(ib2, meterBuilder.getMeterId());
+                ib2.setOrder(0);
+                ib2.setKey(new InstructionKey(0));
+                instructions.add(ib2.build());
+
+                // Set queue and send out
+                ib = OpenFlowUtils.createSetQueueOutputPortInstructions(ib, outPortMDNode, outPortMDNC, tunnelsDscp.get(tunnel));
+                ib.setOrder(1);
+                ib.setKey(new InstructionKey(1));
+                instructions.add(ib.build());
+
+                break;
+            }
 
 
 
@@ -934,7 +995,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
         log.trace("writeFlow: flowPath {}", flowPath);
 
         readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, nodePath, nodeBuilder.build());
-        readWriteTransaction.put(LogicalDatastoreType.CONFIGURATION, flowPath, flowBuilder.build());
+        readWriteTransaction.merge(LogicalDatastoreType.CONFIGURATION, flowPath, flowBuilder.build());
 
         ListenableFuture<RpcResult<TransactionStatus>> commitFuture = readWriteTransaction.commit();
         Futures.addCallback(commitFuture, new FutureCallback<RpcResult<TransactionStatus>>() {
@@ -952,7 +1013,7 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
                     // Failed because of concurrent transaction modifying same data
                     log.error("writeFlow: onFailure: Failed because of concurrent transaction modifying same data, we should retry");
                     if ((retries - 1) > 0){
-                        log.info("writeFlow: retrying for flowBuilder {} nodeBuilder {} retry {}", flowBuilder.getFlowName(), nodeBuilder.getId(), retries);
+                        log.info("writeFlow: retrying for flowBuilder {} nodeBuilder {} retry {}", flowBuilder.getFlowName(), nodeBuilder.getId(), RETRIES - retries);
                         try {
                             Thread.sleep(RETRIES_SLEEP);
                         } catch (InterruptedException e) {

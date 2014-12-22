@@ -14,6 +14,7 @@ import org.opendaylight.controller.samples.differentiatedforwarding.IForwarding;
 import org.opendaylight.controller.samples.differentiatedforwarding.ITunnelObserver;
 import org.opendaylight.controller.samples.differentiatedforwarding.Tunnel;
 import org.opendaylight.controller.samples.differentiatedforwarding.TunnelEndPoint;
+import org.opendaylight.controller.samples.differentiatedforwarding.internal.DifferentiatedForwardingImpl.CoreQosStrategy;
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.SshUtil;
 import org.opendaylight.controller.samples.differentiatedforwarding.openstack.performance.Exp;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
@@ -48,7 +49,8 @@ public class DifferentiatedForwardingCLI {
           @Descriptor("Container on the context of which the routing service need to be looked up") String container,
           @Descriptor("Tunnel key from getTunnelsMap") String tunnelKey,
           @Descriptor("Tunnel index from getTunnelsMap") int index,
-          @Descriptor("Tunnel class (k in KShortestRoutes)") int classNum){
+          @Descriptor("Tunnel class (k in KShortestRoutes)") int classNum,
+          @Descriptor("Core QoS Strategy (NONE(0), METER(1), QUEUE(2), METER_QUEUE(3))") int qosStrategy){
         System.out.println("DifferentiatedForwardingCLI - programTunnel");
 
         ITunnelObserver tunnelObserver = (ITunnelObserver) ServiceHelper.getInstance(ITunnelObserver.class, container, this);
@@ -65,7 +67,7 @@ public class DifferentiatedForwardingCLI {
         System.out.println(tunnelsMap);
         Tunnel tunnel = tunnelsMap.get(tunnelKey).get(index);
         System.out.println("Chosen Tunnel:" + tunnel);
-        forwarding.programTunnelForwarding(tunnel, classNum, true);
+        forwarding.programTunnelForwarding(tunnel, classNum, CoreQosStrategy.getStrategy(qosStrategy), true);
     }
 
     public void programTEPs(
@@ -73,7 +75,8 @@ public class DifferentiatedForwardingCLI {
             @Descriptor("Tunnel key from getTunnelEndPoints") String tunnelKey,
             @Descriptor("Src TEP index from getTunnelEndPoints().get") int srcTepIndex,
             @Descriptor("Dst TEP index from getTunnelEndPoints().get") int dstTepIndex,
-            @Descriptor("Tunnel class (k in KShortestRoutes)") int classNum){
+            @Descriptor("Tunnel class (k in KShortestRoutes)") int classNum,
+            @Descriptor("Core QoS Strategy (NONE(0), METER(1), QUEUE(2), METER_QUEUE(3))") int qosStrategy){
 
         System.out.println("DifferentiatedForwardingCLI - programTEPs");
 
@@ -97,7 +100,7 @@ public class DifferentiatedForwardingCLI {
             Tunnel tunnel = null;
             tunnel = new Tunnel(srcTep, dstTep);
             System.out.println("Tunnel: " + tunnel);
-            forwarding.programTunnelForwarding(tunnel, classNum, true);
+            forwarding.programTunnelForwarding(tunnel, classNum, CoreQosStrategy.getStrategy(qosStrategy), true);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -107,7 +110,8 @@ public class DifferentiatedForwardingCLI {
     public void programNetwork(
             @Descriptor("Container on the context of which the routing service need to be looked up") String container,
             @Descriptor("Tunnel key/SegmentationId from getTunnelEndPoints") String segmentationId,
-            @Descriptor("Tunnel class (k in KShortestRoutes)") int classNum){
+            @Descriptor("Tunnel class (k in KShortestRoutes)") int classNum,
+            @Descriptor("Core QoS Strategy (NONE(0), METER(1), QUEUE(2), METER_QUEUE(3))") int qosStrategy){
 
         System.out.println("DifferentiatedForwardingCLI - programNetwork");
 
@@ -134,7 +138,7 @@ public class DifferentiatedForwardingCLI {
 
         for (Tunnel tunnel : tunnels) {
             System.out.println("programTunnelForwarding: " + tunnel + ", classNum: " + classNum);
-            forwarding.programTunnelForwarding(tunnel, classNum, true);
+            forwarding.programTunnelForwarding(tunnel, classNum, CoreQosStrategy.getStrategy(qosStrategy), true);
         }
     }
 

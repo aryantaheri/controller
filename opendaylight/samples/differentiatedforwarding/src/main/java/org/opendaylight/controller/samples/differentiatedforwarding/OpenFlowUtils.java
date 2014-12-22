@@ -13,8 +13,10 @@ import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.Uri;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.OutputActionCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.SetNwTosActionCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.SetQueueActionCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.output.action._case.OutputActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.set.nw.tos.action._case.SetNwTosActionBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.set.queue.action._case.SetQueueActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.Action;
 //import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.Action;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionBuilder;
@@ -44,6 +46,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.TunnelBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._3.match.Ipv4MatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._4.match.UdpMatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.openflow.protocol.rev130731.queue.property.header.QueuePropertyBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg0;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg1;
@@ -77,6 +80,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.ni
 import org.opendaylight.yang.gen.v1.urn.opendaylight.ovs.nx.sal.action.rev140714.nodes.node.table.flow.instructions.instruction.instruction.apply.actions._case.apply.actions.action.action.NxActionResubmitNodesNodeTableFlowApplyActionsCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.ovs.nx.sal.action.rev140714.nx.action.resubmit.grouping.NxResubmit;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.ovs.nx.sal.action.rev140714.nx.action.resubmit.grouping.NxResubmitBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.queue.config.rev131024.queues.QueueBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -354,6 +358,43 @@ public class OpenFlowUtils {
         return ib;
     }
 
+    public static InstructionBuilder createSetQueueOutputPortInstructions(InstructionBuilder ib, Node openFlowNode, NodeConnector outputPort, int classValue) {
+
+        logger.debug("createSetQueueOutputPortInstructions() Node Connector ID is - Type=openflow: Node {} outPort {} classValue {}", openFlowNode, outputPort, classValue);
+        List<Action> actionList = new ArrayList<Action>();
+
+
+        // queues: 7 highest priority > 0 lowest priority
+        Long queueId = ((classValue % 8 == 0) ? 0 : (long) (8 - (classValue % 8)));
+        SetQueueActionBuilder setQueueActionBuilder = new SetQueueActionBuilder();
+        setQueueActionBuilder.setQueueId(queueId);
+        ActionBuilder queueActionBuilder = new ActionBuilder();
+        queueActionBuilder.setAction(new SetQueueActionCaseBuilder().setSetQueueAction(setQueueActionBuilder.build()).build());
+        queueActionBuilder.setOrder(0);
+        queueActionBuilder.setKey(new ActionKey(0));
+        actionList.add(queueActionBuilder.build());
+
+        // Port Output
+        ActionBuilder ab = new ActionBuilder();
+        OutputActionBuilder oab = new OutputActionBuilder();
+        oab.setOutputNodeConnector(outputPort.getId());
+
+        ab.setAction(new OutputActionCaseBuilder().setOutputAction(oab.build()).build());
+        ab.setOrder(1);
+        ab.setKey(new ActionKey(1));
+        actionList.add(ab.build());
+
+
+
+
+        // Create an Apply Action
+        ApplyActionsBuilder aab = new ApplyActionsBuilder();
+        aab.setAction(actionList);
+        ib.setInstruction(new ApplyActionsCaseBuilder().setApplyActions(aab.build()).build());
+
+        return ib;
+    }
+
     public static InstructionBuilder createMeterInstructions(InstructionBuilder ib, MeterId meterId) {
         org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.meter._case.MeterBuilder mb = new org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.meter._case.MeterBuilder();
         mb.setMeterId(meterId);
@@ -590,5 +631,11 @@ public class OpenFlowUtils {
         return meter;
     }
 
+    private void createQueue() {
+        // TODO Auto-generated method stub
+//        QueueBuilder queueBuilder = new QueueBuilder();
+//        QueuePropertyBuilder queuePropertyBuilder = new QueuePropertyBuilder();
+//        queuePropertyBuilder.setProperty(new QueueP)
+    }
 
 }
