@@ -131,6 +131,11 @@ public class SubExp {
                     log.error("exec", e);
                 } finally {
                     if (bwExp != null) bwExp.cleanUp();
+                    try {
+                        Thread.sleep(1000*10*netInsNum);
+                    } catch (InterruptedException e) {
+                        log.error("exec", e);
+                    }
                 }
 
             }

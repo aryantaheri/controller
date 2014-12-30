@@ -18,7 +18,7 @@ public class Exp {
 
     // This is more like a wrong name. It should be ClassNetwork concurrency. It runs the networks concurrently with the given classes.
     public static final boolean RUN_CLASSES_CONCURRENTLY = true;
-    public static final boolean RUN_INSTANCES_CONCURRENTLY = false;
+    public static final boolean RUN_INSTANCES_CONCURRENTLY = true;
 
     int[] instanceRange;
     int[] networkRange;

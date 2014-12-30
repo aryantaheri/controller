@@ -46,7 +46,6 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.TunnelBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._3.match.Ipv4MatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._4.match.UdpMatchBuilder;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.openflow.protocol.rev130731.queue.property.header.QueuePropertyBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg0;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowjava.nx.match.rev140421.NxmNxReg1;
@@ -80,7 +79,6 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.openflowplugin.extension.ni
 import org.opendaylight.yang.gen.v1.urn.opendaylight.ovs.nx.sal.action.rev140714.nodes.node.table.flow.instructions.instruction.instruction.apply.actions._case.apply.actions.action.action.NxActionResubmitNodesNodeTableFlowApplyActionsCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.ovs.nx.sal.action.rev140714.nx.action.resubmit.grouping.NxResubmit;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.ovs.nx.sal.action.rev140714.nx.action.resubmit.grouping.NxResubmitBuilder;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.queue.config.rev131024.queues.QueueBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -365,7 +363,7 @@ public class OpenFlowUtils {
 
 
         // queues: 7 highest priority > 0 lowest priority
-        Long queueId = ((classValue % 8 == 0) ? 0 : (long) (8 - (classValue % 8)));
+        Long queueId = ((classValue % 7 == 0) ? 0 : (long) (7 - (classValue % 7)));
         SetQueueActionBuilder setQueueActionBuilder = new SetQueueActionBuilder();
         setQueueActionBuilder.setQueueId(queueId);
         ActionBuilder queueActionBuilder = new ActionBuilder();

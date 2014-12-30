@@ -43,6 +43,7 @@ public class OpenStackUtil {
     public static final String defaultImage = "cirros-iperf-nuttcp-dhcp";
 //    public static final String defaultImage = "cirros-iperf-nuttcp";
     public static final String defaultFlavor = "m1.nano";
+    public static final String[] hypervisors = {"nuc3", "nuc4", "nuc5"};
 
     public static Map<String, String> vmKeyPair;
     private static Access access;

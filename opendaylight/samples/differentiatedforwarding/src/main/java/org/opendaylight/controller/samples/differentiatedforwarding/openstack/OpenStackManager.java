@@ -32,7 +32,14 @@ public class OpenStackManager {
         List<Server> instances = new ArrayList<>();
         for (int i = 0; i < number; i++) {
             // Create a Server Model Object
-            ServerCreate sc = Builders.server().name(namePrefix + (i+1)).flavor(flavorUuid).image(imageUuid).networks(networks).keypairName(keyPairName).build();
+            ServerCreate sc = Builders.server()
+                                        .name(namePrefix + (i+1))
+                                        .flavor(flavorUuid)
+                                        .image(imageUuid)
+                                        .networks(networks)
+                                        .keypairName(keyPairName)
+                                        .availabilityZone("nova:"+OpenStackUtil.hypervisors[i % OpenStackUtil.hypervisors.length])
+                                        .build();
 
             // Boot the Server
 //            Server server = osClient.compute().servers().bootAndWaitActive(sc, BOOT_WAIT_TIME);

@@ -761,7 +761,10 @@ public class DifferentiatedForwardingImpl implements IfNewHostNotify, IListenRou
             return;
         }
 
-        MeterBuilder meterBuilder = prepareMeter(outPortMDNode, tunnelsDscp.get(tunnel));
+        MeterBuilder meterBuilder = null;
+        if (coreQosStrategy.equals(CoreQosStrategy.METER) || coreQosStrategy.equals(CoreQosStrategy.METER_QUEUE)){
+            meterBuilder = prepareMeter(outPortMDNode, tunnelsDscp.get(tunnel));
+        }
 
         MatchBuilder matchBuilder = new MatchBuilder();
         FlowBuilder flowBuilder = new FlowBuilder();
